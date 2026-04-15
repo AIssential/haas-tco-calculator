@@ -1,0 +1,8 @@
+# Unencrypted source — never commit to public repo
+haas_tco_calculator.source.html
+
+# Staticrypt working dirs
+encrypted/
+
+# Staticrypt config (contains salt — keep local)
+.staticrypt.json
