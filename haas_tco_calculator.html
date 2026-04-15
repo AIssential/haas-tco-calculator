@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TCO Calculator — ElephantONE vs Standard HP vs Gas Boiler</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --ep:#0D7A5F; --hp:#1D5FA8; --gas:#C84B0F;
+      --capex:#3B82F6; --opex:#8B5CF6; --nrg:#F59E0B;
+      --bg:#F1F4F8; --surface:#fff; --border:#DDE3EA;
+      --text:#1A202C; --muted:#64748B; --ok:#059669; --fail:#DC2626;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:13px;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+
+    /* Header */
+    header{background:#111827;color:#F9FAFB;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:12px}
+    header h1{font-size:.9rem;font-weight:700}
+    header p{font-size:.68rem;opacity:.5;margin-top:2px}
+    #hdr-badge{font-size:.68rem;padding:3px 10px;border-radius:99px;font-weight:700;white-space:nowrap;flex-shrink:0}
+    .badge-ok{background:#d1fae5;color:#065f46} .badge-fail{background:#fee2e2;color:#991b1b}
+
+    /* Layout */
+    .main{display:flex;flex:1;overflow:hidden}
+
+    /* Sidebar */
+    .sidebar{width:315px;min-width:260px;overflow-y:auto;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+    .preset-bar{display:flex;gap:4px;flex-wrap:wrap;padding:8px;border-bottom:1px solid var(--border);background:var(--bg)}
+    .preset-btn{flex:1;min-width:0;padding:4px 2px;font-size:.65rem;font-weight:700;border:1px solid var(--border);border-radius:4px;background:var(--surface);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .preset-btn:hover{background:#e0f2fe;border-color:#38bdf8}
+    .reset-btn{padding:4px 8px;font-size:.8rem;border:1px solid var(--border);border-radius:4px;background:var(--surface);cursor:pointer;flex-shrink:0}
+    .reset-btn:hover{background:#fee2e2;border-color:#f87171}
+    #sidebar-inner{padding:8px;overflow-y:auto}
+
+    .section{border:1px solid var(--border);border-radius:6px;margin-bottom:6px;overflow:hidden}
+    .sec-hdr{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;cursor:pointer;background:var(--bg);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;user-select:none}
+    .sec-hdr:hover{background:#e2e8f0}
+    .sec-hdr .chev{transition:transform .15s;font-size:.6rem}
+    .sec-hdr.closed .chev{transform:rotate(-90deg)}
+    .sec-body{padding:8px 10px} .sec-body.hidden{display:none}
+
+    .param{margin-bottom:9px} .param:last-child{margin-bottom:0}
+    .param-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px}
+    .param-top .lbl{font-size:.7rem;color:var(--muted);cursor:default}
+    .param-top .lbl.has-tip{text-decoration:underline dotted;cursor:help}
+    .param-top .val{font-size:.73rem;font-weight:700;color:var(--text);cursor:pointer;border-radius:2px;padding:0 2px}
+    .param-top .val:hover{background:#EFF6FF;color:#1D4ED8}
+
+    input[type=range]{-webkit-appearance:none;width:100%;height:4px;border-radius:2px;background:#CBD5E1;outline:none;cursor:pointer}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--ep);cursor:pointer;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+    input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--ep);cursor:pointer;border:2px solid white}
+
+    /* select / build config */
+    .build-row{margin-bottom:8px}
+    .build-row label{display:block;font-size:.68rem;color:var(--muted);margin-bottom:3px}
+    select.build-sel{width:100%;font-size:.72rem;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);cursor:pointer}
+    .computed-heat{display:flex;justify-content:space-between;font-size:.72rem;padding:5px 8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:4px;margin-top:4px}
+    .computed-heat .ch-lbl{color:var(--ok);font-weight:600}
+    .computed-heat .ch-val{font-weight:700;color:var(--ok)}
+
+    /* Results */
+    .results{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+    .card-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .card-title{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+
+    /* View toggle */
+    .vt-grp{display:flex;border:1px solid var(--border);border-radius:5px;overflow:hidden}
+    .vt-btn{padding:4px 10px;font-size:.68rem;font-weight:600;background:var(--surface);border:none;cursor:pointer;color:var(--muted)}
+    .vt-btn:not(:last-child){border-right:1px solid var(--border)}
+    .vt-btn.active{background:#111827;color:white}
+    .vt-btn:hover:not(.active){background:var(--bg)}
+
+    /* Chart */
+    .chart-wrap{position:relative;height:260px}
+
+    /* Tech cards */
+    .tech-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .tech-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px}
+    .tech-card h3{font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;padding-bottom:7px;margin-bottom:8px;border-bottom:3px solid}
+    .tech-card.ep h3{color:var(--ep);border-color:var(--ep)}
+    .tech-card.hp h3{color:var(--hp);border-color:var(--hp)}
+    .tech-card.gas h3{color:var(--gas);border-color:var(--gas)}
+    .mrow{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #F1F5F9;font-size:.72rem}
+    .mrow:last-child{border:none}
+    .mrow .ml{color:var(--muted)} .mrow .mv{font-weight:600}
+    .mrow.tot{padding-top:6px;margin-top:2px;border-top:2px solid var(--border);border-bottom:none}
+    .mrow.tot .ml{font-weight:700;color:var(--text)} .mrow.tot .mv{font-size:1rem}
+    .mrow.tot.ep .mv{color:var(--ep)} .mrow.tot.hp .mv{color:var(--hp)} .mrow.tot.gas .mv{color:var(--gas)}
+    .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
+
+    /* Savings */
+    .savings-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .sav-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px}
+    .sav-card h4{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:10px}
+    .sav-big{font-size:1.6rem;font-weight:800;color:var(--ok);line-height:1}
+    .sav-sub{font-size:.72rem;color:var(--muted);margin-top:2px}
+    .sav-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+    .sav-item .sk{font-size:.65rem;color:var(--muted)} .sav-item .sv{font-size:.88rem;font-weight:700;color:var(--ok)}
+    .sav-neg{color:var(--fail)!important}
+
+    /* CO₂ */
+    .co2-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .co2-col{text-align:center;padding:8px;border-radius:6px;background:var(--bg)}
+    .co2-col h5{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+    .co2-col.ep h5{color:var(--ep)} .co2-col.hp h5{color:var(--hp)} .co2-col.gas h5{color:var(--gas)}
+    .co2-big{font-size:1.2rem;font-weight:700}
+    .co2-sub{font-size:.68rem;color:var(--muted);margin-top:2px}
+    .co2-badge{display:inline-block;margin-top:6px;padding:2px 8px;border-radius:99px;font-size:.65rem;font-weight:700;background:#d1fae5;color:#065f46}
+    .co2-badge.bad{background:#fee2e2;color:#991b1b}
+    .co2-note{font-size:.65rem;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+
+    /* Derived */
+    .derived-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .derived-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px}
+    .derived-card .dtitle{font-size:.65rem;text-transform:uppercase;font-weight:700;letter-spacing:.05em;color:var(--muted);margin-bottom:7px}
+    .kv{display:flex;justify-content:space-between;font-size:.7rem;padding:2px 0}
+    .kv .k{color:var(--muted)} .kv .v{font-weight:600}
+
+    /* Verify */
+    .verify-table{width:100%;border-collapse:collapse;font-size:.7rem}
+    .verify-table th{text-align:right;padding:4px 8px;background:var(--bg);color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)}
+    .verify-table th:first-child{text-align:left}
+    .verify-table td{text-align:right;padding:4px 8px;border-bottom:1px solid #F1F5F9}
+    .verify-table td:first-child{text-align:left;color:var(--muted)}
+    .verify-table tr:last-child td{border-bottom:none}
+    .ok-val{color:var(--ok);font-weight:700} .fail-val{color:var(--fail);font-weight:700} .exp-val{color:var(--muted);font-style:italic}
+    details summary{cursor:pointer;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:4px 0;user-select:none}
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>ElephantONE vs Standard HP vs Gas Boiler — TCO / LCOH Calculator</h1>
+    <p>Levelised Cost of Heat &nbsp;·&nbsp; Source: 260224_TCO_Tool_Technology_Comparison.xlsx</p>
+  </div>
+  <div id="hdr-badge">…</div>
+</header>
+
+<div class="main">
+  <div class="sidebar">
+    <div class="preset-bar" id="preset-bar"></div>
+    <div id="sidebar-inner"></div>
+  </div>
+
+  <div class="results">
+
+    <div class="card">
+      <div class="card-hdr">
+        <div>
+          <span class="card-title">LCOH Breakdown &nbsp;</span>
+          <span style="font-size:.68rem;color:var(--muted)">
+            <span class="dot" style="background:var(--capex)"></span>CAPEX &nbsp;
+            <span class="dot" style="background:var(--opex)"></span>OPEX &nbsp;
+            <span class="dot" style="background:var(--nrg)"></span>Energy
+          </span>
+        </div>
+        <div class="vt-grp">
+          <button class="vt-btn active" data-mode="lcoh">€/kWh</button>
+          <button class="vt-btn" data-mode="annual">€/year</button>
+          <button class="vt-btn" data-mode="lifetime">Lifetime €</button>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="lcohChart"></canvas></div>
+    </div>
+
+    <div class="tech-row">
+      <div class="tech-card ep"  id="card-ep"></div>
+      <div class="tech-card hp"  id="card-hp"></div>
+      <div class="tech-card gas" id="card-gas"></div>
+    </div>
+
+    <div class="savings-row" id="savings-panel"></div>
+
+    <div class="card" id="co2-panel"></div>
+
+    <div class="derived-row">
+      <div class="derived-card">
+        <div class="dtitle">PV LCOE</div>
+        <div class="kv"><span class="k">ElephantONE (inverter &amp; battery integrated)</span><span class="v" id="dv-lcoe-ep">—</span></div>
+        <div class="kv"><span class="k">Standard HP (with inverter)</span><span class="v" id="dv-lcoe-hp">—</span></div>
+        <div class="kv" style="margin-top:6px"><span class="k">Blended price ElephantONE</span><span class="v" id="dv-blend-ep">—</span></div>
+        <div class="kv"><span class="k">Blended price Standard HP</span><span class="v" id="dv-blend-hp">—</span></div>
+      </div>
+      <div class="derived-card">
+        <div class="dtitle">Annual Energy Demand</div>
+        <div class="kv"><span class="k">ElephantONE electricity (incl. losses)</span><span class="v" id="dv-elec-ep">—</span></div>
+        <div class="kv"><span class="k">Standard HP electricity</span><span class="v" id="dv-elec-hp">—</span></div>
+        <div class="kv" style="margin-top:6px"><span class="k">Gas consumption</span><span class="v" id="dv-gas-cons">—</span></div>
+      </div>
+      <div class="derived-card">
+        <div class="dtitle">Subsidies &amp; Total Investment</div>
+        <div class="kv"><span class="k">Subsidy ElephantONE</span><span class="v" id="dv-sub-ep" style="color:var(--ok)">—</span></div>
+        <div class="kv"><span class="k">Subsidy Standard HP</span><span class="v" id="dv-sub-hp" style="color:var(--ok)">—</span></div>
+        <div class="kv" style="margin-top:6px"><span class="k">Total CAPEX ElephantONE (incl. PV)</span><span class="v" id="dv-capex-ep">—</span></div>
+        <div class="kv"><span class="k">Total CAPEX Standard HP (incl. PV)</span><span class="v" id="dv-capex-hp">—</span></div>
+        <div class="kv"><span class="k">Total CAPEX Gas Boiler</span><span class="v" id="dv-capex-gas">—</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <details>
+        <summary>Verification against default parameters</summary>
+        <div style="margin-top:10px">
+          <table class="verify-table" id="verify-table"></table>
+        </div>
+      </details>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── Reference data ─────────────────────────────────────────────────────────
+const BUILDING_CLASSES = [
+  { name:'Passivhaus',                      kwh_m2a: 21.25 },
+  { name:'Effizienzhaus 40',               kwh_m2a: 34.0  },
+  { name:'Effizienzhaus 55',               kwh_m2a: 46.75 },
+  { name:'GEG 2020',                        kwh_m2a: 55.25 },
+  { name:'Neubau nach EnEV 2002–2009',      kwh_m2a: 72.25 },
+  { name:'Bestand nach WSchV 95',           kwh_m2a:102.0  },
+  { name:'Bestand ab 1980',                 kwh_m2a:136.0  },
+  { name:'Bestand vor 1978',                kwh_m2a:195.5  },
+];
+
+const HEATING_TYPES = [
+  { name:'Fußbodenheizung (Vorlauf 35°C)',  scop:4.5 },
+  { name:'Fußbodenheizung (Vorlauf 30°C)',  scop:4.9 },
+  { name:'Gemischtes System (VL 45°C)',     scop:3.2 },
+  { name:'Gemischtes System (VL 40°C)',     scop:3.7 },
+  { name:'Alte Radiatoren (VL 50°C)',       scop:2.8 },
+  { name:'Alte Radiatoren (VL 60°C)',       scop:2.4 },
+];
+
+const PRESETS = [
+  { name:'Passivhaus',   params:{ total_heat:6250,  scop_ep:4.5, scop_hp:4.5, pv_power_kw:10, self_consumption_ep:0.60 } },
+  { name:'GEG 2020',     params:{ total_heat:11350, scop_ep:3.7, scop_hp:3.7, pv_power_kw:12 } },
+  { name:'Bestand 1980', params:{ total_heat:23460, scop_ep:3.4, scop_hp:3.4, pv_power_kw:12 } },
+  { name:'Altbau <1978', params:{ total_heat:32400, scop_ep:2.8, scop_hp:2.8, pv_power_kw:12 } },
+];
+
+// ── Parameter sections ─────────────────────────────────────────────────────
+const SECTIONS = [
+  {
+    id:'general', label:'General Parameters', open:true,
+    params:[
+      { key:'lifetime',            label:'System Lifetime',                   val:15,   min:10,  max:25,   step:1,     unit:'yr',
+        tip:'Years over which CAPEX is amortised. Longer lifetime = lower annual CAPEX share.' },
+      { key:'subsidy_rate',        label:'Subsidy Rate (BEG)',                val:0.35, min:0,   max:0.5,  step:0.01,  unit:'%', x:100,
+        tip:'BEG base subsidy rate applied to eligible CAPEX. Can be up to 50% with income bonus or serial renovation premium.' },
+      { key:'scop_ep',             label:'SCOP ElephantONE',                  val:3.4,  min:2.0, max:5.5,  step:0.1,
+        tip:'Seasonal COP: ratio of annual heat delivered to electrical energy consumed. Set automatically by heating type selection.' },
+      { key:'scop_hp',             label:'SCOP Standard HP',                  val:3.4,  min:2.0, max:5.5,  step:0.1,
+        tip:'Seasonal COP for the standard heat pump. Depends on supply temperature and climate zone.' },
+      { key:'boiler_efficiency',   label:'Gas Boiler Efficiency',             val:0.95, min:0.8, max:1.0,  step:0.01,  unit:'%', x:100,
+        tip:'Seasonal efficiency of condensing boiler (Brennwert). Typically 0.93–0.97 for modern units.' },
+      { key:'self_consumption_ep', label:'Self-Consumption Rate ElephantONE', val:0.55, min:0.2, max:0.8,  step:0.01,  unit:'%', x:100,
+        tip:'Share of PV generation consumed directly. Higher for ElephantONE due to integrated battery storage (≈55% vs 30% without battery).' },
+      { key:'self_consumption_hp', label:'Self-Consumption Rate Standard HP', val:0.30, min:0.1, max:0.6,  step:0.01,  unit:'%', x:100,
+        tip:'Share of PV consumed on-site without battery. Typically 25–35% for a residential system without storage.' },
+      { key:'electricity_price_ep',label:'Grid Price ElephantONE',            val:0.17, min:0.1, max:0.4,  step:0.005, unit:'€/kWh',
+        tip:'Reduced grid tariff under §14a / §22 EnFG for controllable loads. Lower than standard household tariff.' },
+      { key:'electricity_price_hp',label:'Grid Price Standard HP',            val:0.21, min:0.1, max:0.4,  step:0.005, unit:'€/kWh',
+        tip:'Reduced heat pump tariff. Higher than ElephantONE tariff as no §14a integration assumed.' },
+      { key:'gas_price_avg',       label:'Average Gas Price',                 val:0.14, min:0.08,max:0.3,  step:0.005, unit:'€/kWh',
+        tip:'Working price for natural gas. German household average 2024 ≈ 0.10–0.15 €/kWh depending on contract.' },
+      { key:'co2_electricity',     label:'CO₂ factor electricity',            val:0.380,min:0.1, max:0.7,  step:0.01,  unit:'kg/kWh',
+        tip:'Grid electricity CO₂ intensity. Germany 2023 (UBA): ~0.380 kg CO₂eq/kWh. Declining with renewable expansion.' },
+      { key:'co2_gas',             label:'CO₂ factor gas',                   val:0.202,min:0.15,max:0.30, step:0.001, unit:'kg/kWh',
+        tip:'Natural gas combustion CO₂ factor (net calorific value, VDI 4600). Does not include upstream methane losses.' },
+    ]
+  },
+  {
+    id:'heat', label:'Heat Demand', open:true,
+    buildingConfig: true,   // flag: render building config UI at top
+    params:[
+      { key:'total_heat',    label:'Total Heat Demand / Year',                   val:18000, min:5000,  max:40000, step:500, unit:'kWh/a',
+        tip:'Annual space heating + domestic hot water demand. Auto-calculated from building class and area, or set manually.' },
+      { key:'heat_losses_ep',label:'Heat Losses ElephantONE (buffer/DHW tank)',  val:1460,  min:500,   max:3000,  step:100, unit:'kWh/a',
+        tip:'Standing thermal losses from integrated buffer and DHW tank. Approx. 4 W/K × 365 days = 1,460 kWh/a.' },
+    ]
+  },
+  {
+    id:'pv', label:'PV System', open:true,
+    params:[
+      { key:'pv_power_kw',     label:'PV System Size',            val:12,    min:5,    max:20,   step:1,     unit:'kWp',
+        tip:'Installed peak power of the PV array.' },
+      { key:'pv_cost_per_kw',  label:'PV Investment Cost/kWp',    val:1100,  min:700,  max:1800, step:50,    unit:'€/kWp',
+        tip:'Turnkey PV installation cost per kWp. Does NOT include inverter (separate for Standard HP, integrated in ElephantONE).' },
+      { key:'inverter_cost',   label:'Inverter Cost (HP only)',   val:1200,  min:500,  max:3000, step:100,   unit:'€',
+        tip:'Separate string inverter for the Standard HP PV system. Not applicable to ElephantONE (inverter integrated in unit).' },
+      { key:'pv_service_cost', label:'PV Service &amp; Insurance/yr', val:70, min:30,  max:200,  step:10,    unit:'€/a',
+        tip:'Annual maintenance, monitoring, and insurance for the PV system.' },
+      { key:'full_load_hours', label:'Full Load Hours',            val:900,   min:700,  max:1200, step:50,    unit:'h',
+        tip:'Equivalent full-power operating hours per year. Germany average: 900–1,050 h/yr depending on location and roof angle.' },
+      { key:'degradation_rate',label:'PV Degradation Rate',       val:0.005, min:0.002,max:0.01, step:0.001, unit:'%', x:100,
+        tip:'Annual output decline due to panel ageing. Modern panels: 0.4–0.6%/yr, older panels up to 0.8%/yr.' },
+      { key:'discount_rate_pv',label:'Discount Rate for PV LCOE', val:0.04,  min:0.01, max:0.08, step:0.005, unit:'%', x:100,
+        tip:'Rate used to discount future PV O&M costs in the LCOE calculation.' },
+      { key:'pv_lifetime',     label:'PV System Lifetime',        val:20,    min:15,   max:30,   step:1,     unit:'yr',
+        tip:'Economic lifetime over which PV investment is amortised. Panel warranties typically cover 25–30 years.' },
+    ]
+  },
+  {
+    id:'ep', label:'⬡ ElephantONE', open:false, color:'var(--ep)',
+    params:[
+      { key:'ep_box',             label:'ElephantONE Unit (inverter, battery, buffer &amp; DHW integrated)', val:15000, min:10000,max:25000, step:500, unit:'€' },
+      { key:'ep_radiator_piping', label:'Radiator Replacement + Piping + Decomm.',  val:3000,  min:1000, max:8000,  step:250, unit:'€' },
+      { key:'ep_heating_calc',    label:'Heating Load Calc &amp; Hydraulic Balancing', val:1500, min:800,  max:3000,  step:100, unit:'€' },
+      { key:'ep_logistics',       label:'Logistics',                                  val:800,  min:300,  max:1500,  step:100, unit:'€' },
+      { key:'ep_crane',           label:'Crane',                                      val:400,  min:0,    max:1000,  step:100, unit:'€' },
+      { key:'ep_foundation',      label:'Foundation &amp; Groundwork',                val:800,  min:300,  max:2000,  step:100, unit:'€' },
+      { key:'ep_core_drilling',   label:'Core Drilling + Sealings',                   val:800,  min:300,  max:1500,  step:100, unit:'€' },
+      { key:'ep_piping',          label:'Piping &amp; Installation',                  val:2300, min:1000, max:5000,  step:100, unit:'€' },
+      { key:'ep_service',         label:'Service Cost/yr',                             val:500,  min:200,  max:1000,  step:50,  unit:'€/a' },
+      { key:'ep_warranty',        label:'Warranty/yr',                                 val:50,   min:0,    max:200,   step:10,  unit:'€/a' },
+      { key:'ep_metering',        label:'Metering/yr',                                 val:50,   min:0,    max:150,   step:10,  unit:'€/a' },
+      { key:'ep_spare_parts',     label:'Spare Parts/yr',                              val:50,   min:0,    max:200,   step:10,  unit:'€/a' },
+      { key:'ep_electricity_base',label:'Electricity Base Price/yr',                   val:170,  min:100,  max:300,   step:10,  unit:'€/a' },
+    ]
+  },
+  {
+    id:'hp', label:'⬡ Standard HP', open:false, color:'var(--hp)',
+    params:[
+      { key:'hp_unit',              label:'Heat Pump Unit (incl. Margin)',           val:12000, min:8000,  max:20000, step:500, unit:'€' },
+      { key:'hp_radiator_piping',   label:'Radiator Replacement + Piping + Decomm.', val:3000,  min:1000,  max:8000,  step:250, unit:'€' },
+      { key:'hp_heating_calc',      label:'Heating Load Calc &amp; Hydraulic Balancing', val:1500, min:800, max:3000,  step:100, unit:'€' },
+      { key:'hp_dhw_buffer',        label:'DHW Tanks + Buffer Tank + Hydraulics',    val:6000,  min:3000,  max:12000, step:500, unit:'€' },
+      { key:'hp_logistics',         label:'Logistics',                               val:250,   min:100,   max:800,   step:50,  unit:'€' },
+      { key:'hp_foundation',        label:'Foundation &amp; Groundwork',             val:2500,  min:1000,  max:5000,  step:250, unit:'€' },
+      { key:'hp_core_drilling',     label:'Core Drilling + Sealings',                val:600,   min:200,   max:1500,  step:100, unit:'€' },
+      { key:'hp_piping_electrical', label:'Piping &amp; Electrical Installation',    val:3900,  min:2000,  max:8000,  step:100, unit:'€' },
+      { key:'hp_service',           label:'Service Cost/yr',                          val:400,   min:200,   max:800,   step:50,  unit:'€/a' },
+      { key:'hp_warranty',          label:'Warranty/yr',                              val:50,    min:0,     max:200,   step:10,  unit:'€/a' },
+      { key:'hp_metering',          label:'Metering/yr',                              val:50,    min:0,     max:150,   step:10,  unit:'€/a' },
+      { key:'hp_spare_parts',       label:'Spare Parts/yr',                           val:50,    min:0,     max:200,   step:10,  unit:'€/a' },
+      { key:'hp_electricity_base',  label:'Electricity Base Price/yr',                val:170,   min:100,   max:300,   step:10,  unit:'€/a' },
+    ]
+  },
+  {
+    id:'gas', label:'⬡ Gas Boiler', open:false, color:'var(--gas)',
+    params:[
+      { key:'gas_boiler_unit',    label:'Gas Boiler (incl. Chimney)',               val:9000, min:5000, max:15000, step:500, unit:'€' },
+      { key:'gas_decommissioning',label:'Decommissioning Old Heating',              val:800,  min:300,  max:2000,  step:100, unit:'€' },
+      { key:'gas_heating_calc',   label:'Heating Load Calc &amp; Hydraulic Balancing', val:550, min:300, max:1500,  step:50,  unit:'€' },
+      { key:'gas_logistics',      label:'Logistics',                                val:250,  min:100,  max:800,   step:50,  unit:'€' },
+      { key:'gas_installation',   label:'Installation',                             val:3000, min:1500, max:6000,  step:250, unit:'€' },
+      { key:'gas_service',        label:'Service Cost/yr',                           val:350,  min:150,  max:700,   step:50,  unit:'€/a' },
+      { key:'gas_warranty',       label:'Warranty/yr',                               val:50,   min:0,    max:200,   step:10,  unit:'€/a' },
+      { key:'gas_metering',       label:'Metering/yr',                               val:50,   min:0,    max:150,   step:10,  unit:'€/a' },
+      { key:'gas_chimney_sweep',  label:'Chimney Sweep/yr',                          val:80,   min:30,   max:200,   step:10,  unit:'€/a' },
+      { key:'gas_base_price',     label:'Gas Base Price/yr',                         val:150,  min:80,   max:300,   step:10,  unit:'€/a' },
+    ]
+  },
+];
+
+// ── State ──────────────────────────────────────────────────────────────────
+const DEFAULTS = {};
+SECTIONS.forEach(s => s.params.forEach(p => { DEFAULTS[p.key] = p.val; }));
+const S = { ...DEFAULTS };
+
+// Building config state (separate from S)
+const BC = { cls:5, area:150, persons:4 }; // idx 5 = Bestand WSchV95 → ~18360 kWh
+
+let VIEW = 'lcoh'; // 'lcoh' | 'annual' | 'lifetime'
+
+// Param lookup map
+const PARAM_MAP = {};
+SECTIONS.forEach(s => s.params.forEach(p => { PARAM_MAP[p.key] = p; }));
+
+// ── Building config helpers ────────────────────────────────────────────────
+function computeHeatFromBC() {
+  const dhw = BC.persons * 40 * (55 - 10) * 0.425;
+  return Math.round(BUILDING_CLASSES[BC.cls].kwh_m2a * BC.area + dhw);
+}
+
+// ── Formatters ─────────────────────────────────────────────────────────────
+const fmtC  = v => v.toLocaleString('de-DE', { style:'currency', currency:'EUR', maximumFractionDigits:0 });
+const fmtKg = v => v < 1000 ? Math.round(v) + ' kg' : (v/1000).toFixed(1) + ' t';
+
+function displayVal(p) {
+  const v = S[p.key];
+  if (p.unit === '%')       return (v * (p.x||1)).toFixed(p.step < 0.01 ? 2 : 1) + ' %';
+  if (p.unit === '€' || p.unit === '€/a' || p.unit === '€/kWp') return fmtC(v);
+  if (p.unit === 'kWh/a')  return v.toLocaleString('de-DE') + ' kWh/a';
+  if (p.unit === 'yr')     return v + ' yr';
+  if (p.unit === 'kWp')    return v + ' kWp';
+  if (p.unit === 'h')      return v + ' h';
+  if (p.unit === '€/kWh')  return v.toFixed(3) + ' €/kWh';
+  if (p.unit === 'kg/kWh') return v.toFixed(3) + ' kg/kWh';
+  return String(v);
+}
+
+function viewFmt(lcoh, s) {
+  if (VIEW === 'lcoh')     return lcoh.toFixed(4) + ' €/kWh';
+  if (VIEW === 'annual')   return fmtC(lcoh * s.total_heat);
+  return fmtC(lcoh * s.total_heat * s.lifetime);
+}
+function viewScale(s) {
+  if (VIEW === 'lcoh')     return 1;
+  if (VIEW === 'annual')   return s.total_heat;
+  return s.total_heat * s.lifetime;
+}
+function viewYLabel() {
+  if (VIEW === 'lcoh')     return 'LCOH  (€/kWh)';
+  if (VIEW === 'annual')   return 'Annual Cost  (€/yr)';
+  return 'Total Lifetime Cost  (€)';
+}
+function viewTickFmt(v) {
+  if (VIEW === 'lcoh')   return v.toFixed(3);
+  if (VIEW === 'annual') return (v/1000).toFixed(0) + 'k';
+  return (v/1000).toFixed(0) + 'k';
+}
+function viewTooltipFmt(v) {
+  if (VIEW === 'lcoh') return v.toFixed(4) + ' €/kWh';
+  return fmtC(v);
+}
+
+// ── Calculation ────────────────────────────────────────────────────────────
+function calculate(s) {
+  const gen1 = s.pv_power_kw * s.full_load_hours;
+  let sum_gen = 0, sum_pv_opex = 0;
+  for (let t = 1; t <= s.pv_lifetime; t++) {
+    sum_gen     += gen1 * Math.pow(1 - s.degradation_rate, t - 1);
+    sum_pv_opex += s.pv_service_cost / Math.pow(1 + s.discount_rate_pv, t);
+  }
+  const pv_cost_ep = s.pv_power_kw * s.pv_cost_per_kw;
+  const pv_cost_hp = s.pv_power_kw * s.pv_cost_per_kw + s.inverter_cost;
+  const lcoe_ep = (pv_cost_ep + sum_pv_opex) / sum_gen;
+  const lcoe_hp = (pv_cost_hp + sum_pv_opex) / sum_gen;
+
+  const blend_ep = s.self_consumption_ep * lcoe_ep + (1 - s.self_consumption_ep) * s.electricity_price_ep;
+  const blend_hp = s.self_consumption_hp * lcoe_hp + (1 - s.self_consumption_hp) * s.electricity_price_hp;
+
+  const elec_ep  = (s.total_heat + s.heat_losses_ep) / s.scop_ep;
+  const elec_hp  = s.total_heat / s.scop_hp;
+  const gas_cons = s.total_heat / s.boiler_efficiency;
+
+  // ElephantONE
+  const ep_hw   = s.ep_box + s.ep_radiator_piping + s.ep_heating_calc;
+  const ep_inst = s.ep_logistics + s.ep_crane + s.ep_foundation + s.ep_core_drilling + s.ep_piping;
+  const ep_sub  = (ep_inst + s.ep_heating_calc + s.ep_radiator_piping + s.ep_box * 0.7) * s.subsidy_rate;
+  const ep_opex = s.ep_service + s.ep_warranty + s.ep_metering + s.ep_spare_parts;
+  const ep_c = ((ep_hw + ep_inst - ep_sub) / s.lifetime) / s.total_heat;
+  const ep_o = ep_opex / s.total_heat;
+  const ep_e = (s.ep_electricity_base + blend_ep * elec_ep) / s.total_heat;
+
+  // Standard HP
+  const hp_hw   = s.hp_unit + s.hp_radiator_piping + s.hp_heating_calc + s.hp_dhw_buffer;
+  const hp_inst = s.hp_logistics + s.hp_foundation + s.hp_core_drilling + s.hp_piping_electrical;
+  const hp_sub  = (hp_inst + s.hp_heating_calc + s.hp_radiator_piping + s.hp_dhw_buffer + s.hp_unit) * s.subsidy_rate;
+  const hp_opex = s.hp_service + s.hp_warranty + s.hp_metering + s.hp_spare_parts;
+  const hp_c = ((hp_hw + hp_inst - hp_sub) / s.lifetime) / s.total_heat;
+  const hp_o = hp_opex / s.total_heat;
+  const hp_e = (s.hp_electricity_base + blend_hp * elec_hp) / s.total_heat;
+
+  // Gas Boiler
+  const gas_hw   = s.gas_boiler_unit + s.gas_decommissioning + s.gas_heating_calc;
+  const gas_inst = s.gas_logistics + s.gas_installation;
+  const gas_opex = s.gas_service + s.gas_warranty + s.gas_metering + s.gas_chimney_sweep;
+  const gas_c = ((gas_hw + gas_inst) / s.lifetime) / s.total_heat;
+  const gas_o = gas_opex / s.total_heat;
+  const gas_e = (s.gas_base_price + s.gas_price_avg * s.total_heat / s.boiler_efficiency) / s.total_heat;
+
+  // CO₂ per year (grid consumption only; PV self-consumption credited as zero-carbon)
+  const co2_ep  = elec_ep  * (1 - s.self_consumption_ep) * s.co2_electricity;
+  const co2_hp  = elec_hp  * (1 - s.self_consumption_hp) * s.co2_electricity;
+  const co2_gas = gas_cons * s.co2_gas;
+
+  return {
+    ep:  { c:ep_c,  o:ep_o,  e:ep_e,  t:ep_c+ep_o+ep_e,   sub:ep_sub,  capex:ep_hw+ep_inst,  pv:pv_cost_ep, co2:co2_ep  },
+    hp:  { c:hp_c,  o:hp_o,  e:hp_e,  t:hp_c+hp_o+hp_e,   sub:hp_sub,  capex:hp_hw+hp_inst,  pv:pv_cost_hp, co2:co2_hp  },
+    gas: { c:gas_c, o:gas_o, e:gas_e, t:gas_c+gas_o+gas_e, sub:0,       capex:gas_hw+gas_inst,pv:0,          co2:co2_gas },
+    lcoe_ep, lcoe_hp, blend_ep, blend_hp, elec_ep, elec_hp, gas_cons,
+  };
+}
+
+// ── Verification ───────────────────────────────────────────────────────────
+const EXPECTED = {
+  ep:  { lcoh_total:0.1469, lcoh_capex:0.0651, lcoh_opex:0.0361, lcoh_energy:0.0458, subsidy:7035 },
+  hp:  { lcoh_total:0.1614, lcoh_capex:0.0716, lcoh_opex:0.0306, lcoh_energy:0.0593, subsidy:10412.5 },
+  gas: { lcoh_total:0.2355, lcoh_capex:0.0504, lcoh_opex:0.0294, lcoh_energy:0.1557, subsidy:0 },
+};
+
+// ── Inline value editing ───────────────────────────────────────────────────
+function startEdit(el, key) {
+  const p = PARAM_MAP[key];
+  if (!p) return;
+  const raw = S[key];
+  const dispV = p.x ? raw * p.x : raw;
+  const inp = document.createElement('input');
+  inp.type = 'number';
+  inp.value = parseFloat(dispV.toFixed(8));
+  inp.step  = p.x ? p.step * p.x : p.step;
+  inp.min   = p.x ? p.min  * p.x : p.min;
+  inp.max   = p.x ? p.max  * p.x : p.max;
+  inp.style.cssText = 'width:72px;font-size:.73rem;font-weight:700;border:1px solid #3B82F6;border-radius:3px;padding:1px 4px;outline:none';
+  const commit = () => {
+    let v = parseFloat(inp.value);
+    if (isNaN(v)) v = dispV;
+    const lo = p.x ? p.min * p.x : p.min;
+    const hi = p.x ? p.max * p.x : p.max;
+    v = Math.max(lo, Math.min(hi, v));
+    S[key] = p.x ? v / p.x : v;
+    const rng = document.getElementById('rng-' + key);
+    if (rng) rng.value = S[key];
+    el.textContent = displayVal(p);
+    el.style.display = '';
+    inp.remove();
+    updateAll();
+  };
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') { commit(); } if (e.key === 'Escape') { el.style.display = ''; inp.remove(); } });
+  inp.addEventListener('blur', commit);
+  el.style.display = 'none';
+  el.parentNode.insertBefore(inp, el.nextSibling);
+  inp.focus(); inp.select();
+}
+
+// ── Sidebar render ─────────────────────────────────────────────────────────
+function renderPresets() {
+  const bar = document.getElementById('preset-bar');
+  bar.innerHTML = PRESETS.map((p,i) =>
+    `<button class="preset-btn" onclick="applyPreset(${i})">${p.name}</button>`
+  ).join('') + `<button class="reset-btn" onclick="resetAll()" title="Reset all to defaults">↺ Reset</button>`;
+}
+
+function buildingConfigHTML() {
+  const clsOpts = BUILDING_CLASSES.map((c,i) =>
+    `<option value="${i}" ${i===BC.cls?'selected':''}>${c.name} — ${c.kwh_m2a} kWh/m²a</option>`
+  ).join('');
+  const htOpts = HEATING_TYPES.map((h,i) =>
+    `<option value="${i}">${h.name} (SCOP ${h.scop})</option>`
+  ).join('');
+  const computed = computeHeatFromBC();
+  return `
+    <div class="build-row">
+      <label>Building Class</label>
+      <select class="build-sel" id="sel-bldg">${clsOpts}</select>
+    </div>
+    <div class="param">
+      <div class="param-top">
+        <span class="lbl has-tip" title="Heated living area in m²">Living Area</span>
+        <span class="val" id="val-living_area" onclick="startEditBC(this,'area')" title="Click to edit">${BC.area} m²</span>
+      </div>
+      <input type="range" id="rng-living_area" min="50" max="300" step="10" value="${BC.area}">
+    </div>
+    <div class="param">
+      <div class="param-top">
+        <span class="lbl has-tip" title="Number of persons for DHW demand calculation">Persons</span>
+        <span class="val" id="val-persons" onclick="startEditBC(this,'persons')" title="Click to edit">${BC.persons}</span>
+      </div>
+      <input type="range" id="rng-persons" min="1" max="8" step="1" value="${BC.persons}">
+    </div>
+    <div class="computed-heat">
+      <span class="ch-lbl">→ Computed heat demand</span>
+      <span class="ch-val" id="computed-heat">${computed.toLocaleString('de-DE')} kWh/a</span>
+    </div>
+    <div class="build-row" style="margin-top:8px">
+      <label>Heating System Type (sets SCOP)</label>
+      <select class="build-sel" id="sel-heating">${htOpts}</select>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:8px 0">`;
+}
+
+function renderSidebar() {
+  const inner = document.getElementById('sidebar-inner');
+  inner.innerHTML = '';
+  SECTIONS.forEach(sec => {
+    const div = document.createElement('div');
+    div.className = 'section';
+    const bl = sec.color ? `border-left:3px solid ${sec.color};` : '';
+    let bodyContent = '';
+    if (sec.buildingConfig) bodyContent = buildingConfigHTML();
+    bodyContent += sec.params.map(p => `
+      <div class="param">
+        <div class="param-top">
+          <span class="lbl${p.tip?' has-tip':''}"${p.tip?` title="${p.tip}"`:''}>${p.label}</span>
+          <span class="val" id="val-${p.key}" onclick="startEdit(this,'${p.key}')" title="Click to edit">${displayVal(p)}</span>
+        </div>
+        <input type="range" id="rng-${p.key}" min="${p.min}" max="${p.max}" step="${p.step}" value="${S[p.key]}">
+      </div>`).join('');
+    div.innerHTML = `
+      <div class="sec-hdr ${sec.open?'':'closed'}" data-sec="${sec.id}" style="${bl}">
+        <span>${sec.label}</span><span class="chev">▾</span>
+      </div>
+      <div class="sec-body ${sec.open?'':'hidden'}" id="secbody-${sec.id}">${bodyContent}</div>`;
+    inner.appendChild(div);
+  });
+
+  // Collapse toggles
+  inner.querySelectorAll('.sec-hdr').forEach(hdr => {
+    hdr.addEventListener('click', () => {
+      hdr.classList.toggle('closed');
+      document.getElementById('secbody-' + hdr.dataset.sec).classList.toggle('hidden');
+    });
+  });
+
+  // Slider events
+  SECTIONS.forEach(sec => sec.params.forEach(p => {
+    document.getElementById('rng-' + p.key).addEventListener('input', function() {
+      S[p.key] = parseFloat(this.value);
+      document.getElementById('val-' + p.key).textContent = displayVal(p);
+      updateAll();
+    });
+  }));
+
+  // Building config events
+  const selBldg = document.getElementById('sel-bldg');
+  if (selBldg) {
+    selBldg.addEventListener('change', function() {
+      BC.cls = parseInt(this.value);
+      syncBCToHeat();
+    });
+  }
+  const rngArea = document.getElementById('rng-living_area');
+  if (rngArea) {
+    rngArea.addEventListener('input', function() {
+      BC.area = parseInt(this.value);
+      document.getElementById('val-living_area').textContent = BC.area + ' m²';
+      syncBCToHeat();
+    });
+  }
+  const rngPersons = document.getElementById('rng-persons');
+  if (rngPersons) {
+    rngPersons.addEventListener('input', function() {
+      BC.persons = parseInt(this.value);
+      document.getElementById('val-persons').textContent = BC.persons;
+      syncBCToHeat();
+    });
+  }
+  const selHeat = document.getElementById('sel-heating');
+  if (selHeat) {
+    selHeat.addEventListener('change', function() {
+      const scop = HEATING_TYPES[parseInt(this.value)].scop;
+      S.scop_ep = scop; S.scop_hp = scop;
+      const rep = document.getElementById('rng-scop_ep');
+      const rhp = document.getElementById('rng-scop_hp');
+      if (rep) { rep.value = scop; document.getElementById('val-scop_ep').textContent = displayVal(PARAM_MAP['scop_ep']); }
+      if (rhp) { rhp.value = scop; document.getElementById('val-scop_hp').textContent = displayVal(PARAM_MAP['scop_hp']); }
+      updateAll();
+    });
+  }
+}
+
+function syncBCToHeat() {
+  const heat = computeHeatFromBC();
+  S.total_heat = heat;
+  const rng = document.getElementById('rng-total_heat');
+  if (rng) rng.value = heat;
+  const val = document.getElementById('val-total_heat');
+  if (val) val.textContent = displayVal(PARAM_MAP['total_heat']);
+  const ch = document.getElementById('computed-heat');
+  if (ch) ch.textContent = heat.toLocaleString('de-DE') + ' kWh/a';
+  updateAll();
+}
+
+function startEditBC(el, field) {
+  const cfg = { area:{ min:50, max:300, step:10, suffix:' m²' }, persons:{ min:1, max:8, step:1, suffix:'' } }[field];
+  if (!cfg) return;
+  const cur = BC[field];
+  const inp = document.createElement('input');
+  inp.type = 'number'; inp.value = cur; inp.step = cfg.step; inp.min = cfg.min; inp.max = cfg.max;
+  inp.style.cssText = 'width:60px;font-size:.73rem;font-weight:700;border:1px solid #3B82F6;border-radius:3px;padding:1px 4px;outline:none';
+  const commit = () => {
+    let v = parseInt(inp.value);
+    if (isNaN(v)) v = cur;
+    v = Math.max(cfg.min, Math.min(cfg.max, v));
+    BC[field] = v;
+    el.textContent = v + cfg.suffix;
+    el.style.display = '';
+    inp.remove();
+    const rng = document.getElementById('rng-' + (field==='area'?'living_area':'persons'));
+    if (rng) rng.value = v;
+    syncBCToHeat();
+  };
+  inp.addEventListener('keydown', e => { if (e.key==='Enter') commit(); if (e.key==='Escape') { el.style.display=''; inp.remove(); } });
+  inp.addEventListener('blur', commit);
+  el.style.display = 'none';
+  el.parentNode.insertBefore(inp, el.nextSibling);
+  inp.focus(); inp.select();
+}
+
+// ── Chart ──────────────────────────────────────────────────────────────────
+let chart = null;
+
+function renderChart(res) {
+  const sc = viewScale(S);
+  const labels = ['ElephantONE','Standard HP','Gas Boiler'];
+  const cDs = { label:'CAPEX',  data:[res.ep.c*sc, res.hp.c*sc, res.gas.c*sc], backgroundColor:'#3B82F6', borderRadius:2 };
+  const oDs = { label:'OPEX',   data:[res.ep.o*sc, res.hp.o*sc, res.gas.o*sc], backgroundColor:'#8B5CF6', borderRadius:2 };
+  const eDs = { label:'Energy', data:[res.ep.e*sc, res.hp.e*sc, res.gas.e*sc], backgroundColor:'#F59E0B', borderRadius:2 };
+
+  if (chart) {
+    chart.data.datasets[0].data = cDs.data;
+    chart.data.datasets[1].data = oDs.data;
+    chart.data.datasets[2].data = eDs.data;
+    chart.options.scales.y.title.text = viewYLabel();
+    chart.options.scales.y.ticks.callback = viewTickFmt;
+    chart.options.plugins.tooltip.callbacks.label = ctx => ` ${ctx.dataset.label}: ${viewTooltipFmt(ctx.parsed.y)}`;
+    chart.options.plugins.tooltip.callbacks.footer = items => {
+      const tot = items.reduce((a,i) => a+i.parsed.y, 0);
+      return `Total: ${viewTooltipFmt(tot)}`;
+    };
+    chart.update('none');
+    return;
+  }
+
+  chart = new Chart(document.getElementById('lcohChart'), {
+    type:'bar',
+    data:{ labels, datasets:[cDs,oDs,eDs] },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ display:false },
+        tooltip:{
+          callbacks:{
+            label: ctx => ` ${ctx.dataset.label}: ${viewTooltipFmt(ctx.parsed.y)}`,
+            footer: items => { const t=items.reduce((a,i)=>a+i.parsed.y,0); return `Total: ${viewTooltipFmt(t)}`; }
+          }
+        }
+      },
+      scales:{
+        x:{ stacked:true, grid:{display:false}, ticks:{ font:{weight:'700',size:11}, color:['#0D7A5F','#1D5FA8','#C84B0F'] } },
+        y:{ stacked:true, beginAtZero:true,
+            title:{ display:true, text:viewYLabel(), font:{size:11}, color:'#64748B' },
+            grid:{ color:'#F1F5F9' },
+            ticks:{ callback: viewTickFmt }
+        }
+      }
+    }
+  });
+}
+
+// ── Tech cards ─────────────────────────────────────────────────────────────
+function techCard(id, title, cls, r) {
+  document.getElementById(id).innerHTML = `
+    <h3>${title}</h3>
+    <div class="mrow"><span class="ml"><span class="dot" style="background:var(--capex)"></span>CAPEX</span><span class="mv">${viewFmt(r.c,S)}</span></div>
+    <div class="mrow"><span class="ml"><span class="dot" style="background:var(--opex)"></span>OPEX</span><span class="mv">${viewFmt(r.o,S)}</span></div>
+    <div class="mrow"><span class="ml"><span class="dot" style="background:var(--nrg)"></span>Energy</span><span class="mv">${viewFmt(r.e,S)}</span></div>
+    <div class="mrow tot ${cls}"><span class="ml">Total</span><span class="mv">${viewFmt(r.t,S)}</span></div>
+    <div class="mrow" style="margin-top:4px"><span class="ml" style="color:#64748B">Subsidy</span><span class="mv" style="color:var(--ok)">${fmtC(r.sub)}</span></div>`;
+}
+
+// ── Savings panel ──────────────────────────────────────────────────────────
+function renderSavings(res) {
+  const panel = document.getElementById('savings-panel');
+  const annEP  = (res.gas.t - res.ep.t)  * S.total_heat;
+  const annHP  = (res.gas.t - res.hp.t)  * S.total_heat;
+  const lifEP  = annEP  * S.lifetime;
+  const lifHP  = annHP  * S.lifetime;
+  const pctEP  = ((res.gas.t - res.ep.t)  / res.gas.t * 100).toFixed(1);
+  const pctHP  = ((res.gas.t - res.hp.t)  / res.gas.t * 100).toFixed(1);
+
+  const card = (tech, color, ann, lif, pct) => {
+    const neg = ann < 0;
+    const cls = neg ? 'sav-neg' : '';
+    return `<div class="sav-card">
+      <h4>vs. Gas Boiler — <span style="color:${color}">${tech}</span></h4>
+      <div class="sav-big ${cls}">${ann>=0?'':'-'}${fmtC(Math.abs(ann))}</div>
+      <div class="sav-sub">per year${ann<0?' — more expensive':''}</div>
+      <div class="sav-grid">
+        <div class="sav-item"><div class="sk">Over ${S.lifetime} yr</div><div class="sv ${cls}">${lif>=0?'':'-'}${fmtC(Math.abs(lif))}</div></div>
+        <div class="sav-item"><div class="sk">Cost reduction</div><div class="sv ${cls}">${pct}%</div></div>
+      </div>
+    </div>`;
+  };
+  panel.innerHTML = card('ElephantONE','var(--ep)',annEP,lifEP,pctEP) + card('Standard HP','var(--hp)',annHP,lifHP,pctHP);
+}
+
+// ── CO₂ panel ──────────────────────────────────────────────────────────────
+function renderCO2(res) {
+  const panel = document.getElementById('co2-panel');
+  const lifEP  = res.ep.co2  * S.lifetime;
+  const lifHP  = res.hp.co2  * S.lifetime;
+  const lifGas = res.gas.co2 * S.lifetime;
+  const savEP  = ((res.gas.co2 - res.ep.co2)  / res.gas.co2 * 100).toFixed(0);
+  const savHP  = ((res.gas.co2 - res.hp.co2)  / res.gas.co2 * 100).toFixed(0);
+
+  panel.innerHTML = `
+    <div class="card-title" style="margin-bottom:10px">CO₂ Emissions</div>
+    <div class="co2-grid">
+      <div class="co2-col ep">
+        <h5>ElephantONE</h5>
+        <div class="co2-big">${fmtKg(res.ep.co2)}</div>
+        <div class="co2-sub">per year</div>
+        <div class="co2-sub">${fmtKg(lifEP)} over ${S.lifetime} yr</div>
+        <div class="co2-badge">−${savEP}% vs gas</div>
+      </div>
+      <div class="co2-col hp">
+        <h5>Standard HP</h5>
+        <div class="co2-big">${fmtKg(res.hp.co2)}</div>
+        <div class="co2-sub">per year</div>
+        <div class="co2-sub">${fmtKg(lifHP)} over ${S.lifetime} yr</div>
+        <div class="co2-badge">−${savHP}% vs gas</div>
+      </div>
+      <div class="co2-col gas">
+        <h5>Gas Boiler</h5>
+        <div class="co2-big">${fmtKg(res.gas.co2)}</div>
+        <div class="co2-sub">per year</div>
+        <div class="co2-sub">${fmtKg(lifGas)} over ${S.lifetime} yr</div>
+        <div class="co2-badge bad">baseline</div>
+      </div>
+    </div>
+    <div class="co2-note">Grid electricity: ${S.co2_electricity.toFixed(3)} kg CO₂/kWh &nbsp;·&nbsp; Natural gas: ${S.co2_gas.toFixed(3)} kg CO₂/kWh &nbsp;·&nbsp; PV self-consumption credited as zero-carbon</div>`;
+}
+
+// ── Derived values ─────────────────────────────────────────────────────────
+function updateDerived(res) {
+  document.getElementById('dv-lcoe-ep').textContent  = res.lcoe_ep.toFixed(4) + ' €/kWh';
+  document.getElementById('dv-lcoe-hp').textContent  = res.lcoe_hp.toFixed(4) + ' €/kWh';
+  document.getElementById('dv-blend-ep').textContent = res.blend_ep.toFixed(4) + ' €/kWh';
+  document.getElementById('dv-blend-hp').textContent = res.blend_hp.toFixed(4) + ' €/kWh';
+  document.getElementById('dv-elec-ep').textContent  = Math.round(res.elec_ep).toLocaleString('de-DE') + ' kWh/a';
+  document.getElementById('dv-elec-hp').textContent  = Math.round(res.elec_hp).toLocaleString('de-DE') + ' kWh/a';
+  document.getElementById('dv-gas-cons').textContent = Math.round(res.gas_cons).toLocaleString('de-DE') + ' kWh/a';
+  document.getElementById('dv-sub-ep').textContent   = fmtC(res.ep.sub);
+  document.getElementById('dv-sub-hp').textContent   = fmtC(res.hp.sub);
+  document.getElementById('dv-capex-ep').textContent = fmtC(res.ep.capex + res.ep.pv);
+  document.getElementById('dv-capex-hp').textContent = fmtC(res.hp.capex + res.hp.pv);
+  document.getElementById('dv-capex-gas').textContent= fmtC(res.gas.capex);
+}
+
+// ── Verification ───────────────────────────────────────────────────────────
+function renderVerify(res) {
+  const EXP = EXPECTED, tol = 0.0002;
+  const rows = [
+    ['LCOH Total (€/kWh)',  res.ep.t,   EXP.ep.lcoh_total,  res.hp.t,   EXP.hp.lcoh_total,  res.gas.t,   EXP.gas.lcoh_total],
+    ['LCOH CAPEX (€/kWh)',  res.ep.c,   EXP.ep.lcoh_capex,  res.hp.c,   EXP.hp.lcoh_capex,  res.gas.c,   EXP.gas.lcoh_capex],
+    ['LCOH OPEX (€/kWh)',   res.ep.o,   EXP.ep.lcoh_opex,   res.hp.o,   EXP.hp.lcoh_opex,   res.gas.o,   EXP.gas.lcoh_opex],
+    ['LCOH Energy (€/kWh)', res.ep.e,   EXP.ep.lcoh_energy, res.hp.e,   EXP.hp.lcoh_energy, res.gas.e,   EXP.gas.lcoh_energy],
+    ['Subsidy (€)',         res.ep.sub, EXP.ep.subsidy,     res.hp.sub, EXP.hp.subsidy,     res.gas.sub, EXP.gas.subsidy],
+  ];
+  let allOk = true;
+  let html = `<thead><tr><th style="text-align:left">Metric</th>
+    <th style="color:var(--ep)">ElephantONE</th><th>Expected</th>
+    <th style="color:var(--hp)">Standard HP</th><th>Expected</th>
+    <th style="color:var(--gas)">Gas Boiler</th><th>Expected</th>
+  </tr></thead><tbody>`;
+  rows.forEach(([lbl, epV, epX, hpV, hpX, gasV, gasX]) => {
+    const isEur = lbl.includes('€)');
+    const fmt = isEur ? v => fmtC(v) : v => v.toFixed(4);
+    const tol2 = isEur ? 1 : tol;
+    const chk = (v, x) => {
+      const ok = Math.abs(v-x) <= tol2;
+      if (!ok) allOk = false;
+      return ok
+        ? `<td class="ok-val">${fmt(v)}</td><td class="exp-val">${fmt(x)}</td>`
+        : `<td class="fail-val">${fmt(v)}</td><td class="exp-val">${fmt(x)}</td>`;
+    };
+    html += `<tr><td>${lbl}</td>${chk(epV,epX)}${chk(hpV,hpX)}${chk(gasV,gasX)}</tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('verify-table').innerHTML = html;
+  const badge = document.getElementById('hdr-badge');
+  badge.textContent = allOk ? '✓ All verified' : '⚠ Defaults changed';
+  badge.className   = allOk ? 'badge-ok' : 'badge-fail';
+}
+
+// ── View toggle ────────────────────────────────────────────────────────────
+document.querySelectorAll('.vt-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.vt-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    VIEW = this.dataset.mode;
+    updateAll();
+  });
+});
+
+// ── Presets & reset ────────────────────────────────────────────────────────
+function applyPreset(idx) {
+  const p = PRESETS[idx];
+  Object.entries(p.params).forEach(([k,v]) => {
+    S[k] = v;
+    const rng = document.getElementById('rng-' + k);
+    if (rng) rng.value = v;
+    const val = document.getElementById('val-' + k);
+    if (val && PARAM_MAP[k]) val.textContent = displayVal(PARAM_MAP[k]);
+  });
+  updateAll();
+}
+
+function resetAll() {
+  Object.assign(S, DEFAULTS);
+  BC.cls = 5; BC.area = 150; BC.persons = 4;
+  // Re-render sidebar to reset building config UI
+  renderSidebar();
+  updateAll();
+}
+
+// ── Main update ────────────────────────────────────────────────────────────
+function updateAll() {
+  const res = calculate(S);
+  renderChart(res);
+  techCard('card-ep',  'ElephantONE', 'ep',  res.ep);
+  techCard('card-hp',  'Standard HP', 'hp',  res.hp);
+  techCard('card-gas', 'Gas Boiler',  'gas', res.gas);
+  renderSavings(res);
+  renderCO2(res);
+  updateDerived(res);
+  renderVerify(res);
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+renderPresets();
+renderSidebar();
+updateAll();
+</script>
+</body>
+</html>
