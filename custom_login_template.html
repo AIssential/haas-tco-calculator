@@ -101,7 +101,7 @@
                     <input type="submit" class="staticrypt-decrypt-button" id="decrypt-btn" value="/*[|template_button|]*/0" />
                 </form>
 
-                <div class="login-version" id="login-version">V0.5 — Value Stacking Logic &nbsp;·&nbsp; V0.6 — 繁體中文</div>
+                <div class="login-version" id="login-version">V0.5 — Value Stacking Logic</div>
             </div>
         </div>
 
@@ -117,7 +117,44 @@
             const templateConfig = {
                 rememberExpirationKey: "staticrypt_expiration",
                 rememberPassphraseKey: "staticrypt_passphrase",
-                replaceHtmlCallback: null,
+                replaceHtmlCallback: function (plainHTML) {
+                    try {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(plainHTML, 'text/html');
+
+                        (function stripV06References(d){
+                            d.querySelectorAll('option').forEach(opt => {
+                                const val = (opt.getAttribute('value') || '');
+                                if (/v06\.html$/i.test(val)) {
+                                    opt.remove();
+                                }
+                            });
+                            const verSel = d.getElementById('ver-sel');
+                            if (verSel) {
+                                const cur = verSel.value || '';
+                                if (/v06\.html$/i.test(cur)) {
+                                    verSel.value = 'haas_tco_calculator.html';
+                                }
+                                if (!verSel.value && verSel.options.length) {
+                                    verSel.selectedIndex = 0;
+                                }
+                            }
+                            d.querySelectorAll('a[href$="v06.html" i]').forEach(a => a.remove());
+
+                            const lv = d.getElementById('login-version');
+                            if (lv && lv.textContent) {
+                                const idx = lv.textContent.indexOf('·');
+                                lv.textContent = idx > -1 ? lv.textContent.slice(0, idx).trim() : lv.textContent.replace(/V0\.6.*$/, '').trim();
+                            }
+                        })(doc);
+
+                        document.write(doc.documentElement.outerHTML);
+                        document.close();
+                    } catch (e) {
+                        document.write(plainHTML);
+                        document.close();
+                    }
+                },
                 clearLocalStorageCallback: null,
             };
 
@@ -152,16 +189,7 @@
             function setLang(lang) {
                 localStorage.setItem('haas_lang', lang);
                 const currentIsZh = window.location.pathname.includes('v06');
-                if (lang === 'zh' && !currentIsZh) {
-                    // Navigate to Chinese version
-                    window.location.href = 'haas_tco_v06.html';
-                    return;
-                }
-                if (lang === 'en' && currentIsZh) {
-                    // Navigate to English version
-                    window.location.href = 'haas_tco_calculator.html';
-                    return;
-                }
+                // Stay on the current page; just switch labels locally
                 applyLang(lang);
             }
 
