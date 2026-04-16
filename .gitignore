@@ -1,5 +1,7 @@
 # Unencrypted source — never commit to public repo
 haas_tco_calculator.source.html
+haas_tco_v06.source.html
+haas_tco_v07.source.html
 
 # Staticrypt working dirs
 encrypted/
