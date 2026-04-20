@@ -1,0 +1,2333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TCO Calculator V0.8 — ElephantONE vs Standard HP vs Gas Boiler</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --ep:#30C96F; --hp:#F5A623; --gas:#EF6B4A;
+      --capex:#F97316; --opex:#3B82F6; --nrg:#30C96F;
+      --bg:#0B1120; --surface:#111927; --surface2:#162031; --border:#1E293B;
+      --text:#E2E8F0; --muted:#8494A7; --ok:#30C96F; --fail:#EF4444;
+      --accent:#30C96F; --accent-dim:rgba(48,201,111,0.12); --accent-border:rgba(48,201,111,0.25);
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{height:100%}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans TC',sans-serif;font-size:13px;background:var(--bg);color:var(--text);display:flex;flex-direction:column}
+
+    /* Header */
+    header{background:var(--surface);color:var(--text);padding:0;display:flex;flex-direction:column;flex-shrink:0;border-bottom:2px solid var(--accent)}
+    .hdr-top{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;gap:12px}
+    .hdr-top>div:first-child{flex:1;min-width:0}
+    header h1{font-size:.9rem;font-weight:800;color:var(--text)}
+    header p{font-size:.68rem;color:var(--muted);margin-top:2px}
+    #hdr-badge{font-size:.68rem;padding:3px 10px;border-radius:99px;font-weight:700;white-space:nowrap;flex-shrink:0}
+    .badge-ok{background:var(--accent-dim);color:var(--accent)} .badge-fail{background:rgba(239,68,68,0.15);color:#f87171}
+    #ver-sel{font-size:.68rem;font-weight:700;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;flex-shrink:0;min-width:140px}
+    #ver-sel option{background:var(--surface);color:var(--text)}
+    #ver-sel:hover{background:var(--border);color:var(--text)}
+
+    /* Header controls */
+    .hdr-ctrl{display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0}
+    .hdr-ctrl-lbl{font-size:.6rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+    .toggle-pill{display:flex;border:1px solid var(--border);border-radius:5px;overflow:hidden}
+    .tpill-btn{padding:4px 12px;font-size:.68rem;font-weight:700;background:var(--surface2);border:none;cursor:pointer;color:var(--muted);transition:background .15s,color .15s;min-width:48px;text-align:center}
+    .tpill-btn:not(:last-child){border-right:1px solid var(--border)}
+    .tpill-btn:hover:not(.active){background:var(--border)}
+    .tpill-btn.active-mode{background:var(--accent);color:#0B1120}
+    .tpill-btn.active-lang{background:var(--accent);color:#0B1120}
+
+    /* Layout */
+    .main{display:flex;flex:1;overflow:hidden}
+
+    /* Sidebar */
+    .sidebar{width:315px;min-width:260px;overflow-y:auto;background:var(--surface);border-right:1px solid var(--border);flex-shrink:0;transition:width .25s ease,min-width .25s ease,padding .25s ease}
+    .sidebar.collapsed{width:0;min-width:0;padding:0;overflow:hidden;border-right:none}
+    .sidebar-toggle{position:absolute;left:0;top:50%;transform:translateY(-50%);z-index:20;width:20px;height:40px;background:var(--surface2);border:1px solid var(--border);border-left:none;border-radius:0 6px 6px 0;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;transition:left .25s ease}
+    .sidebar-toggle:hover{background:var(--accent);color:#0B1120}
+    .preset-bar{display:flex;gap:4px;flex-wrap:wrap;padding:6px 20px;border-top:1px solid var(--border);background:var(--surface);align-items:center}
+    .preset-note{font-size:.65rem;color:var(--muted);padding-left:8px;white-space:nowrap;flex-shrink:0;font-style:italic}
+    .preset-btn{flex:1;min-width:0;padding:4px 6px;font-size:.65rem;font-weight:700;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--muted);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .preset-btn:hover{background:var(--border);color:var(--text);border-color:var(--muted)}
+    .preset-btn.active{background:var(--accent);border-color:var(--accent);color:#0B1120}
+    .reset-btn{padding:4px 10px;font-size:.8rem;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--muted);cursor:pointer;flex-shrink:0}
+    .reset-btn:hover{background:rgba(239,68,68,0.15);border-color:#f87171;color:#f87171}
+    #sidebar-inner{padding:8px;overflow-y:auto}
+
+    .section{border:1px solid var(--border);border-radius:6px;margin-bottom:6px;overflow:hidden}
+    .sec-hdr{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;cursor:pointer;background:var(--surface2);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;user-select:none;color:var(--text)}
+    .sec-hdr:hover{background:var(--border)}
+    .sec-hdr .chev{transition:transform .15s;font-size:.6rem}
+    .sec-hdr.closed .chev{transform:rotate(-90deg)}
+    .sec-body{padding:8px 10px;background:var(--surface)} .sec-body.hidden{display:none}
+
+    .param{margin-bottom:9px} .param:last-child{margin-bottom:0}
+    .param-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px}
+    .param-top .lbl{font-size:.7rem;color:var(--muted);cursor:default}
+    .param-top .lbl.has-tip{text-decoration:underline dotted;cursor:help}
+    .param-top .val{font-size:.73rem;font-weight:700;color:var(--text);cursor:pointer;border-radius:2px;padding:0 2px}
+    .param-top .val:hover{background:var(--accent-dim);color:var(--accent)}
+
+    input[type=range]{-webkit-appearance:none;width:100%;height:4px;border-radius:2px;background:var(--border);outline:none;cursor:pointer}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.5)}
+    input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--surface)}
+
+    .build-row{margin-bottom:8px}
+    .build-row label{display:block;font-size:.68rem;color:var(--muted);margin-bottom:3px}
+    select.build-sel{width:100%;font-size:.72rem;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--text);cursor:pointer}
+    select.build-sel option{background:var(--surface);color:var(--text)}
+    .computed-heat{display:flex;justify-content:space-between;font-size:.72rem;padding:5px 8px;background:var(--accent-dim);border:1px solid var(--accent-border);border-radius:4px;margin-top:4px}
+    .computed-heat .ch-lbl{color:var(--accent);font-weight:600}
+    .computed-heat .ch-val{font-weight:700;color:var(--accent)}
+
+    .results{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:12px}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+    .card-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .card-title{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+
+    .vt-grp{display:flex;border:1px solid var(--border);border-radius:5px;overflow:hidden}
+    .vt-btn{padding:4px 10px;font-size:.68rem;font-weight:600;background:var(--surface2);border:none;cursor:pointer;color:var(--muted)}
+    .vt-btn:not(:last-child){border-right:1px solid var(--border)}
+    .vt-btn.active{background:var(--accent);color:#0B1120}
+    .vt-btn:hover:not(.active){background:var(--border)}
+
+    .chart-wrap{position:relative;height:260px}
+
+    .tech-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;perspective:1200px}
+    .tech-card{position:relative;border-radius:12px;cursor:pointer;height:auto}
+    .tc-flip-inner{position:relative;width:100%;transition:transform .5s ease;transform-style:preserve-3d}
+    .tech-card.flipped .tc-flip-inner{transform:rotateY(180deg)}
+    .tc-front,.tc-back{border-radius:12px;backface-visibility:hidden;-webkit-backface-visibility:hidden;background:var(--surface);border:1px solid var(--border);overflow:hidden;transition:border-color .2s,box-shadow .2s}
+    .tc-front{position:relative;z-index:1}
+    .tc-back{position:absolute;top:0;left:0;width:100%;height:100%;transform:rotateY(180deg);overflow-y:auto}
+    .tech-card:hover .tc-front,.tech-card:hover .tc-back{border-color:var(--muted);box-shadow:0 4px 20px rgba(0,0,0,.3)}
+    .tech-card.winner .tc-front,.tech-card.winner .tc-back{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+    .tc-flip-hint{position:absolute;bottom:10px;right:12px;font-size:.6rem;color:var(--muted);opacity:.6;pointer-events:none;transition:opacity .2s}
+    .tech-card:hover .tc-flip-hint{opacity:1}
+    .tc-back-hdr{padding:12px 16px 8px;display:flex;justify-content:space-between;align-items:center}
+    .tc-back-hdr h3{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em}
+    .tc-back-close{font-size:.7rem;color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:4px;border:1px solid var(--border);background:var(--surface2)}
+    .tc-back-close:hover{color:var(--text);border-color:var(--muted)}
+    .tc-back-section{padding:0 16px;margin-bottom:10px}
+    .tc-back-section-title{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+    .tc-detail-row{display:flex;justify-content:space-between;padding:3px 0;font-size:.7rem}
+    .tc-detail-row .td-lbl{color:var(--muted)}
+    .tc-detail-row .td-val{font-weight:600;color:var(--text)}
+    .tc-detail-row.td-total{margin-top:4px;padding-top:6px;border-top:2px solid var(--border)}
+    .tc-detail-row.td-total .td-lbl{font-weight:700;color:var(--text)}
+    .tc-detail-row.td-total .td-val{font-weight:800;font-size:.82rem}
+    .tc-back-section .td-sub{color:var(--accent);font-size:.65rem;font-weight:600}
+    .tc-header{padding:16px 16px 0;position:relative;display:flex;flex-direction:column;gap:10px}
+    .tc-header-text{display:flex;flex-direction:column;gap:2px}
+    .tc-header h3{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+    .tc-header .tc-subtitle{font-size:.65rem;color:var(--muted);line-height:1.3}
+    .tc-image-placeholder{width:100%;height:180px;background:linear-gradient(135deg, var(--surface2) 0%, var(--surface) 100%);border:1.5px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:2rem;color:var(--muted);text-align:center;margin-bottom:12px}
+    .tech-card.ep .tc-header h3{color:var(--ep)}
+    .tech-card.hp .tc-header h3{color:var(--hp)}
+    .tech-card.gas .tc-header h3{color:var(--gas)}
+    .tc-hero{padding:0 16px 14px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+    .tc-hero .tc-headline{font-size:.72rem;color:var(--muted)}
+    .tc-cost-big{font-size:2rem;font-weight:800;line-height:1}
+    .tc-cost-unit{font-size:.75rem;font-weight:600;color:var(--muted)}
+    .tc-monthly{font-size:.82rem;font-weight:700;color:var(--muted);margin-top:2px}
+    .tech-card.ep .tc-cost-big{color:var(--ep)}
+    .tech-card.hp .tc-cost-big{color:var(--hp)}
+    .tech-card.gas .tc-cost-big{color:var(--gas)}
+    .tc-badge{display:inline-flex;align-items:center;gap:4px;font-size:.62rem;font-weight:800;padding:3px 10px;border-radius:99px;text-transform:uppercase;letter-spacing:.04em}
+    .tc-badge.winner-badge{background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent-border)}
+    .tc-badge.compare-badge{background:var(--surface2);color:var(--muted);border:1px solid var(--border)}
+    .tc-divider{height:1px;background:var(--border);margin:0}
+    .tc-params{padding:12px 16px 24px}
+    .tc-param-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:.72rem}
+    .tc-param-row:last-child{border-bottom:none}
+    .tc-param-row .tc-icon{width:20px;flex-shrink:0;text-align:center;font-size:.8rem;margin-right:6px}
+    .tc-param-row .tc-plbl{color:var(--muted);display:flex;align-items:center}
+    .tc-param-row .tc-pval{font-weight:700;color:var(--text)}
+    .tc-param-row .tc-pval.accent{color:var(--accent)}
+    .mrow{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border);font-size:.72rem}
+    .mrow:last-child{border:none}
+    .mrow .ml{color:var(--muted)} .mrow .mv{font-weight:600}
+    .mrow.tot{padding-top:6px;margin-top:2px;border-top:2px solid var(--border);border-bottom:none}
+    .mrow.tot .ml{font-weight:700;color:var(--text)} .mrow.tot .mv{font-size:1rem}
+    .mrow.tot.ep .mv{color:var(--ep)} .mrow.tot.hp .mv{color:var(--hp)} .mrow.tot.gas .mv{color:var(--gas)}
+    .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
+
+    /* Charts 2-col layout */
+    .charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .charts-grid .card{min-width:0}
+
+    .savings-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .sav-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px}
+    .sav-card h4{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:10px}
+    .sav-big{font-size:1.6rem;font-weight:800;color:var(--accent);line-height:1}
+    .sav-sub{font-size:.72rem;color:var(--muted);margin-top:2px}
+    .sav-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+    .sav-item .sk{font-size:.65rem;color:var(--muted)} .sav-item .sv{font-size:.88rem;font-weight:700;color:var(--accent)}
+    .sav-neg{color:var(--fail)!important}
+
+    .co2-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    .co2-col{text-align:center;padding:8px;border-radius:6px;background:var(--surface2)}
+    .co2-col h5{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+    .co2-col.ep h5{color:var(--ep)} .co2-col.hp h5{color:var(--hp)} .co2-col.gas h5{color:var(--gas)}
+    .co2-big{font-size:1.2rem;font-weight:700}
+    .co2-sub{font-size:.68rem;color:var(--muted);margin-top:2px}
+    .co2-badge{display:inline-block;margin-top:6px;padding:2px 8px;border-radius:99px;font-size:.65rem;font-weight:700;background:var(--accent-dim);color:var(--accent)}
+    .co2-badge.bad{background:rgba(239,68,68,0.15);color:#f87171}
+    .co2-note{font-size:.65rem;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+
+    .derived-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .derived-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px}
+    .derived-card .dtitle{font-size:.65rem;text-transform:uppercase;font-weight:700;letter-spacing:.05em;color:var(--muted);margin-bottom:7px}
+    .kv{display:flex;justify-content:space-between;font-size:.7rem;padding:2px 0}
+    .kv .k{color:var(--muted)} .kv .v{font-weight:600}
+
+    .verify-table{width:100%;border-collapse:collapse;font-size:.7rem}
+    .verify-table th{text-align:right;padding:4px 8px;background:var(--surface2);color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)}
+    .verify-table th:first-child{text-align:left}
+    .verify-table td{text-align:right;padding:4px 8px;border-bottom:1px solid var(--border)}
+    .verify-table td:first-child{text-align:left;color:var(--muted)}
+    .verify-table tr:last-child td{border-bottom:none}
+    .ok-val{color:var(--accent);font-weight:700} .fail-val{color:var(--fail);font-weight:700} .exp-val{color:var(--muted);font-style:italic}
+    details summary{cursor:pointer;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:4px 0;user-select:none}
+    details summary:hover{color:var(--accent)}
+
+    /* Custom scrollbar for dark theme */
+    ::-webkit-scrollbar{width:8px;height:8px}
+    ::-webkit-scrollbar-track{background:var(--bg)}
+    ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+    ::-webkit-scrollbar-thumb:hover{background:#334155}
+
+    .scenario-bar{display:flex;gap:6px;padding:6px 20px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0}
+    .scenario-btn{flex:1;padding:5px 4px;font-size:.65rem;font-weight:800;border:2px solid var(--border);border-radius:5px;cursor:pointer;background:var(--surface2);color:var(--muted);letter-spacing:.04em;text-transform:uppercase;transition:background .15s,border-color .15s,color .15s}
+    .scenario-btn:hover{background:var(--border);color:var(--text);border-color:var(--muted)}
+    .scenario-btn.active{background:var(--accent);border-color:var(--accent);color:#0B1120}
+
+    .fin-toggle{display:flex;gap:0;margin:0 0 10px 0;border:1px solid var(--border);border-radius:4px;overflow:hidden}
+    .fin-btn{flex:1;padding:5px;font-size:.68rem;font-weight:700;border:none;background:var(--surface2);color:var(--muted);cursor:pointer;transition:background .15s}
+    .fin-btn:hover:not(.active){background:var(--border)}
+    .fin-btn.active{background:var(--accent);color:#0B1120}
+
+    .cum-chart-wrap{position:relative;height:260px}
+    .cum-vt-grp{display:flex;border:1px solid var(--border);border-radius:5px;overflow:hidden}
+    .cum-vt-btn{padding:4px 10px;font-size:.68rem;font-weight:600;background:var(--surface2);border:none;cursor:pointer;color:var(--muted)}
+    .cum-vt-btn:not(:last-child){border-right:1px solid var(--border)}
+    .cum-vt-btn.active{background:var(--accent);color:#0B1120}
+    .cum-vt-btn:hover:not(.active){background:var(--border)}
+    .payback-chips{display:flex;gap:6px;flex-wrap:wrap}
+    .pb-chip{font-size:.65rem;font-weight:700;padding:3px 9px;border-radius:99px;white-space:nowrap}
+    .pb-chip.ep{background:var(--accent-dim);color:var(--accent)}
+    .pb-chip.hp{background:rgba(245,166,35,0.15);color:#F5A623}
+    .pb-chip.none{background:rgba(239,68,68,0.15);color:#f87171}
+
+    .vpp-note{font-size:.65rem;color:#fbbf24;background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.25);border-radius:4px;padding:4px 8px;margin-bottom:6px}
+
+    .toggle-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:.72rem}
+    .toggle-row .lbl{color:var(--muted)}
+    .toggle-switch{position:relative;display:inline-block;width:28px;height:16px}
+    .toggle-switch input{display:none}
+    .toggle-slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:var(--border);border-radius:16px;transition:.2s}
+    .toggle-slider::before{content:'';position:absolute;width:12px;height:12px;left:2px;bottom:2px;background:var(--muted);border-radius:50%;transition:.2s}
+    input:checked + .toggle-slider{background:var(--accent)}
+    input:checked + .toggle-slider::before{transform:translateX(12px);background:#0B1120}
+
+    .mrow.rev .mv{color:var(--ok)!important}
+
+    .ldet-btn{display:block;width:100%;text-align:left;background:none;border:1px dashed var(--border);border-radius:4px;padding:5px 8px;font-size:.65rem;font-weight:600;color:var(--muted);cursor:pointer;margin-top:6px;transition:background .12s}
+    .ldet-btn:hover{background:var(--surface2)}
+    .ldet-body{padding:4px 0 0}
+    .ldet-row{display:flex;justify-content:space-between;font-size:.68rem;padding:2px 8px;color:var(--muted)}
+    .ldet-row .ldet-v{font-weight:600;color:var(--text)}
+    .hidden{display:none!important}
+
+    /* === A: Animated number transitions === */
+    .tc-cost-big,.tc-monthly,.sav-big,.co2-big{transition:opacity .15s}
+
+    /* === B: Smart insight callouts === */
+    .insight-bar{display:flex;gap:10px;flex-wrap:wrap;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px}
+    .insight-chip{display:flex;align-items:center;gap:8px;font-size:.82rem;padding:8px 14px;border-radius:6px;background:var(--surface2);border:1px solid var(--border);color:var(--text);white-space:nowrap;animation:insightIn .4s ease both}
+    .insight-chip .ins-icon{font-size:1.05rem;flex-shrink:0}
+    .insight-chip .ins-text{font-weight:600;letter-spacing:.01em}
+    .insight-chip .ins-hl{color:var(--accent);font-weight:900;font-size:.9rem}
+    .insight-chip.negative .ins-hl{color:var(--fail)}
+    .insight-chip.warning{background:rgba(239,107,74,0.1);border-color:rgba(239,107,74,0.35)}
+    .insight-chip.warning .ins-icon{color:var(--gas)}
+    .insight-chip.warning .ins-hl{color:var(--gas)}
+    @keyframes insightIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+    /* === C: Scroll-reveal animations === */
+    .reveal{opacity:0;transform:translateY(20px);transition:opacity .5s ease,transform .5s ease}
+    .reveal.visible{opacity:1;transform:translateY(0)}
+    .reveal:nth-child(2){transition-delay:.05s}
+    .reveal:nth-child(3){transition-delay:.1s}
+    .reveal:nth-child(4){transition-delay:.15s}
+
+    /* === E: Sparklines on hero cards === */
+    .tc-sparkline{padding:4px 16px 8px;display:flex;align-items:center;gap:6px}
+    .tc-sparkline canvas{display:block}
+    .tc-sparkline-label{font-size:.7rem;font-weight:700;white-space:nowrap}
+    .tech-card.ep .tc-sparkline-label{color:var(--ep)}
+    .tech-card.hp .tc-sparkline-label{color:var(--hp)}
+    .tech-card.gas .tc-sparkline-label{color:var(--muted)}
+
+    /* === F: Light/Dark theme === */
+    .theme-toggle{display:flex;align-items:center;gap:4px;cursor:pointer;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);font-size:.75rem;transition:background .15s}
+    .theme-toggle:hover{background:var(--border);color:var(--text)}
+    .theme-toggle .theme-icon{font-size:.85rem}
+
+    html.light-theme{--bg:#F1F5F9;--surface:#FFFFFF;--surface2:#F8FAFC;--border:#E2E8F0;--text:#1E293B;--muted:#64748B;--accent:#30C96F;--accent-dim:rgba(48,201,111,0.1);--accent-border:rgba(48,201,111,0.3)}
+    html.light-theme .tc-front,html.light-theme .tc-back{background:var(--surface)}
+    html.light-theme .sidebar{background:var(--surface)}
+    html.light-theme header{background:var(--surface)}
+    html.light-theme .card{background:var(--surface)}
+    html.light-theme .sav-card{background:var(--surface)}
+    html.light-theme .co2-col{background:var(--surface2)}
+    html.light-theme .derived-card{background:var(--surface)}
+    html.light-theme input[type=range]{background:var(--border)}
+    html.light-theme input[type=range]::-webkit-slider-thumb{border-color:var(--surface)}
+    html.light-theme ::-webkit-scrollbar-track{background:var(--bg)}
+    html.light-theme ::-webkit-scrollbar-thumb{background:var(--border)}
+
+    /* === D: Export button === */
+    .export-btn{display:flex;align-items:center;gap:4px;cursor:pointer;padding:4px 10px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);font-size:.68rem;font-weight:700;transition:background .15s}
+    .export-btn:hover{background:var(--accent);color:#0B1120;border-color:var(--accent)}
+    .export-btn .exp-icon{font-size:.8rem}
+
+    @media print{
+      .sidebar,.sidebar-toggle,header,.scenario-bar,.preset-bar{display:none!important}
+      .main{display:block!important}
+      .results{padding:0!important}
+      body{background:#fff!important;color:#1E293B!important}
+      .card,.tech-card .tc-front,.tech-card .tc-back,.sav-card,.derived-card,.co2-col{background:#fff!important;border-color:#E2E8F0!important}
+      .reveal{opacity:1!important;transform:none!important}
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="hdr-top">
+    <div>
+      <h1 data-i18n="title">ElephantONE vs Standard HP vs Gas Boiler — TCO / LCOH Calculator</h1>
+      <p data-i18n="subtitle">Levelised Cost of Heat · Source: 260224_TCO_Tool_Technology_Comparison.xlsx</p>
+    </div>
+    <div class="hdr-ctrl">
+      <div class="hdr-ctrl-lbl" data-i18n="mode_hint">Mode</div>
+      <div class="toggle-pill">
+        <button id="btn-light" class="tpill-btn active-mode" data-i18n="mode_light" onclick="setMode('light')">Light</button>
+        <button id="btn-full"  class="tpill-btn"             data-i18n="mode_full"  onclick="setMode('full')">Full</button>
+      </div>
+    </div>
+    <div class="hdr-ctrl">
+      <div class="hdr-ctrl-lbl">Language / 語言</div>
+      <div class="toggle-pill">
+        <button id="btn-en" class="tpill-btn active-lang" onclick="setLang('en')">EN</button>
+        <button id="btn-zh" class="tpill-btn"             onclick="setLang('zh')">繁中</button>
+      </div>
+    </div>
+    <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">
+      <span class="theme-icon" id="theme-icon">☀️</span>
+    </button>
+    <button class="export-btn" onclick="exportPDF()">
+      <span class="exp-icon">📄</span> Export
+    </button>
+    <select id="ver-sel" onchange="if(this.value)window.location.href=this.value">
+      <option value="haas_tco_v08.html" selected>V0.8 — Dark Theme Redesign (Latest)</option>
+      <option value="haas_tco_calculator.html">V0.7 — Bilingual EN/繁中</option>
+      <option value="haas_tco_v06.html">V0.6 — Light/Full Mode</option>
+      <option value="haas_tco_v05.html">V0.5 — Value Stacking Logic</option>
+      <option value="haas_tco_v04.html">V0.4 — Beautification</option>
+      <option value="haas_tco_v03.html">V0.3 — Value Stacking</option>
+      <option value="haas_tco_v02.html">V0.2 — UI Improvements</option>
+      <option value="haas_tco_v01.html">V0.1 — Initial Release</option>
+    </select>
+    <div id="hdr-badge">…</div>
+  </div>
+  <div class="scenario-bar" id="scenario-bar"></div>
+  <div class="preset-bar" id="preset-bar"></div>
+</header>
+
+<div class="main" style="position:relative">
+  <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()">▶</button>
+  <div class="sidebar collapsed" id="sidebar">
+    <div id="sidebar-inner"></div>
+  </div>
+
+  <div class="results">
+
+    <!-- Hero Tech Cards — flip cards -->
+    <div class="tech-row reveal">
+      <div class="tech-card ep"  id="card-ep" onclick="flipCard(this)"><div class="tc-flip-inner"><div class="tc-front" id="front-ep"></div><div class="tc-back" id="back-ep"></div></div></div>
+      <div class="tech-card hp"  id="card-hp" onclick="flipCard(this)"><div class="tc-flip-inner"><div class="tc-front" id="front-hp"></div><div class="tc-back" id="back-hp"></div></div></div>
+      <div class="tech-card gas" id="card-gas" onclick="flipCard(this)"><div class="tc-flip-inner"><div class="tc-front" id="front-gas"></div><div class="tc-back" id="back-gas"></div></div></div>
+    </div>
+
+    <!-- Smart Insights -->
+    <div class="insight-bar reveal" id="insight-bar"></div>
+
+    <!-- Charts side by side -->
+    <div class="charts-grid reveal">
+      <div class="card">
+        <div class="card-hdr">
+          <div>
+            <span class="card-title" data-i18n="cum_title">Break-even &amp; Payback vs. Gas Boiler</span>
+            <div id="payback-chips" class="payback-chips" style="margin-top:5px"></div>
+          </div>
+          <div class="cum-vt-grp">
+            <button class="cum-vt-btn active" data-cmode="savings" data-i18n="cum_savings">Savings vs Gas</button>
+            <button class="cum-vt-btn" data-cmode="absolute" data-i18n="cum_absolute">Absolute Costs</button>
+          </div>
+        </div>
+        <div class="cum-chart-wrap"><canvas id="cumChart"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="card-hdr">
+          <div>
+            <span class="card-title" data-i18n="lcoh_title">LCOH Breakdown</span>
+            <span style="font-size:.63rem;color:var(--muted);margin-left:6px" data-i18n="lcoh_legend_hint">click legend to toggle segments</span>
+          </div>
+          <div class="vt-grp">
+            <button class="vt-btn active" data-mode="lcoh">€/kWh</button>
+            <button class="vt-btn" data-mode="annual" data-i18n="vt_annual">€/year</button>
+            <button class="vt-btn" data-mode="lifetime" data-i18n="vt_lifetime">Lifetime €</button>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="lcohChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Savings -->
+    <div class="savings-row reveal" id="savings-panel"></div>
+
+    <!-- CO2 -->
+    <div class="card reveal" id="co2-panel"></div>
+
+    <!-- Derived values -->
+    <div class="derived-row reveal">
+      <div class="derived-card">
+        <div class="dtitle" data-i18n="dv_pv_lcoe">PV LCOE</div>
+        <div class="kv"><span class="k" data-i18n="dv_lcoe_ep">ElephantONE (inverter &amp; battery integrated)</span><span class="v" id="dv-lcoe-ep">—</span></div>
+        <div class="kv"><span class="k" data-i18n="dv_lcoe_hp">Standard HP (with inverter)</span><span class="v" id="dv-lcoe-hp">—</span></div>
+        <div class="kv" style="margin-top:6px"><span class="k" data-i18n="dv_blend_ep">Blended price ElephantONE</span><span class="v" id="dv-blend-ep">—</span></div>
+        <div class="kv"><span class="k" data-i18n="dv_blend_hp">Blended price Standard HP</span><span class="v" id="dv-blend-hp">—</span></div>
+      </div>
+      <div class="derived-card">
+        <div class="dtitle" data-i18n="dv_energy_demand">Annual Energy Demand</div>
+        <div class="kv"><span class="k" data-i18n="dv_elec_ep">ElephantONE electricity (incl. losses)</span><span class="v" id="dv-elec-ep">—</span></div>
+        <div class="kv"><span class="k" data-i18n="dv_elec_hp">Standard HP electricity</span><span class="v" id="dv-elec-hp">—</span></div>
+        <div class="kv" style="margin-top:6px"><span class="k" data-i18n="dv_gas_cons">Gas consumption</span><span class="v" id="dv-gas-cons">—</span></div>
+      </div>
+      <div class="derived-card">
+        <div class="dtitle" data-i18n="dv_subsidy_capex">Subsidies &amp; Total Investment</div>
+        <div class="kv"><span class="k" data-i18n="dv_sub_ep">Subsidy ElephantONE</span><span class="v" id="dv-sub-ep" style="color:var(--ok)">—</span></div>
+        <div class="kv"><span class="k" data-i18n="dv_sub_hp">Subsidy Standard HP</span><span class="v" id="dv-sub-hp" style="color:var(--ok)">—</span></div>
+        <div class="kv" style="margin-top:6px"><span class="k" data-i18n="dv_capex_ep">Total CAPEX ElephantONE (incl. PV)</span><span class="v" id="dv-capex-ep">—</span></div>
+        <div class="kv"><span class="k" data-i18n="dv_capex_hp">Total CAPEX Standard HP (incl. PV)</span><span class="v" id="dv-capex-hp">—</span></div>
+        <div class="kv"><span class="k" data-i18n="dv_capex_gas">Total CAPEX Gas Boiler</span><span class="v" id="dv-capex-gas">—</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <details>
+        <summary data-i18n="verify_title">Verification against default parameters</summary>
+        <div style="margin-top:10px">
+          <table class="verify-table" id="verify-table"></table>
+        </div>
+      </details>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── i18n STRINGS ───────────────────────────────────────────────────────────
+const STRINGS = {
+  en: {
+    title: 'ElephantONE vs Standard HP vs Gas Boiler — TCO / LCOH Calculator',
+    subtitle: 'Levelised Cost of Heat · Source: 260224_TCO_Tool_Technology_Comparison.xlsx',
+    // Mode
+    mode_hint: 'Mode',
+    mode_light: 'Light',
+    mode_full: 'Full',
+    // Light mode collapsed rows
+    light_fixed: n => `▸ ${n} fixed parameters`,
+    light_hide:  n => `▾ hide ${n} parameters`,
+    // Chart & views
+    lcoh_title: 'LCOH Breakdown',
+    lcoh_legend_hint: 'click legend to toggle segments',
+    vt_annual: '€/year',
+    vt_lifetime: 'Lifetime €',
+    chart_capex: 'CAPEX',
+    chart_opex: 'OPEX',
+    chart_energy: 'Energy',
+    chart_carbon: 'Carbon',
+    chart_revenue: 'Revenue (EP)',
+    chart_revenue_suffix: '  ↓ reduces net cost',
+    y_lcoh: 'LCOH  (€/kWh)',
+    y_annual: 'Annual Cost  (€/yr)',
+    y_lifetime: 'Total Lifetime Cost  (€)',
+    net_lcoh: 'Net LCOH',
+    net: 'Net',
+    // Bar labels
+    bar_ep: 'ElephantONE',
+    bar_hp: 'Standard HP',
+    bar_gas: 'Gas Boiler',
+    // Cumulative
+    cum_title: 'Break-even & Payback vs. Gas Boiler',
+    cum_savings: 'Savings vs Gas',
+    cum_absolute: 'Absolute Costs',
+    cum_y_savings: 'Cumulative Savings vs. Gas (€)',
+    cum_y_absolute: 'Cumulative Cost (€)',
+    cum_ep_sav: 'ElephantONE savings',
+    cum_hp_sav: 'Standard HP savings',
+    cum_gas_base: 'Gas Boiler (baseline €0)',
+    today: 'Today',
+    yr: n => `Yr ${n}`,
+    // Payback chips
+    pb_ep_ok:   (yr, sav, lt) => `⚡ ElephantONE: payback yr ${yr} · saves ${sav} over ${lt} yr`,
+    pb_ep_none: lt => `ElephantONE: no payback within ${lt} yr`,
+    pb_hp_ok:   (yr, sav, lt) => `🔵 Standard HP: payback yr ${yr} · saves ${sav} over ${lt} yr`,
+    pb_hp_none: lt => `Standard HP: no payback within ${lt} yr`,
+    // Tech card
+    tc_capex: 'CAPEX', tc_opex: 'OPEX', tc_energy: 'Energy', tc_carbon: 'Carbon',
+    tc_valstack: 'Value stacking', tc_total: 'Total', tc_subsidy: 'Subsidy',
+    tc_haas_note: 'HaaS lease mode active',
+    // Savings
+    sav_vs_gas: 'vs. Gas Boiler',
+    sav_per_year: 'per year',
+    sav_more_expensive: 'per year — more expensive',
+    sav_over: n => `Over ${n} yr`,
+    sav_cost_reduction: 'Cost reduction',
+    // CO₂
+    co2_title: 'CO₂ Emissions',
+    co2_per_year: 'per year',
+    co2_over: (kg, n) => `${kg} over ${n} yr`,
+    co2_vs_gas: pct => `−${pct}% vs gas`,
+    co2_baseline: 'baseline',
+    co2_note_prefix: 'Grid electricity',
+    co2_note_gas: 'Natural gas',
+    co2_note_pv: 'PV self-consumption credited as zero-carbon',
+    co2_note_carbon: 'Carbon price',
+    // Derived
+    dv_pv_lcoe: 'PV LCOE',
+    dv_lcoe_ep: 'ElephantONE (inverter & battery integrated)',
+    dv_lcoe_hp: 'Standard HP (with inverter)',
+    dv_blend_ep: 'Blended price ElephantONE',
+    dv_blend_hp: 'Blended price Standard HP',
+    dv_energy_demand: 'Annual Energy Demand',
+    dv_elec_ep: 'ElephantONE electricity (incl. losses)',
+    dv_elec_hp: 'Standard HP electricity',
+    dv_gas_cons: 'Gas consumption',
+    dv_subsidy_capex: 'Subsidies & Total Investment',
+    dv_sub_ep: 'Subsidy ElephantONE',
+    dv_sub_hp: 'Subsidy Standard HP',
+    dv_capex_ep: 'Total CAPEX ElephantONE (incl. PV)',
+    dv_capex_hp: 'Total CAPEX Standard HP (incl. PV)',
+    dv_capex_gas: 'Total CAPEX Gas Boiler',
+    // Verify
+    verify_title: 'Verification against default parameters',
+    verify_metric: 'Metric', verify_expected: 'Expected',
+    badge_ok: '✓ All verified', badge_fail: '⚠ Defaults changed',
+    // Scenario names
+    sc_pessimistic: 'Pessimistic', sc_balanced: 'Balanced', sc_optimistic: 'Optimistic',
+    // Preset names
+    pr_passivhaus: 'Passivhaus', pr_geg2020: 'GEG 2020', pr_bestand1980: 'Bestand 1980', pr_altbau: 'Altbau <1978',
+    // Building classes
+    bc_0: 'Passivhaus',            bc_1: 'Effizienzhaus 40',       bc_2: 'Effizienzhaus 55',
+    bc_3: 'GEG 2020',              bc_4: 'Neubau nach EnEV 2002–2009', bc_5: 'Bestand nach WSchV 95',
+    bc_6: 'Bestand ab 1980',       bc_7: 'Bestand vor 1978',
+    // Heating types
+    ht_0: 'Fußbodenheizung (Vorlauf 35°C)', ht_1: 'Fußbodenheizung (Vorlauf 30°C)',
+    ht_2: 'Gemischtes System (VL 45°C)',     ht_3: 'Gemischtes System (VL 40°C)',
+    ht_4: 'Alte Radiatoren (VL 50°C)',       ht_5: 'Alte Radiatoren (VL 60°C)',
+    // Financing
+    fin_buy: 'Buy', fin_haas: 'HaaS Lease',
+    // Building config labels
+    bc_label: 'Building Class', ht_label: 'Heating System Type (sets SCOP)',
+    bc_area: 'Living Area', bc_persons: 'Persons', bc_computed: '→ Computed heat demand',
+    // Value stacking
+    vs_auto_note: 'Auto-calculated from your grid consumption — updates with all sliders',
+    vs_14a_label: '§14a Grid Fee Reduction',
+    vs_14a_sub: 'Auto: grid kWh × 4.0 ct/kWh · 0 when VPP active',
+    vs_arb_label: 'Dynamic Tariff Arbitrage',
+    vs_ev_label: 'EV (Wallbox) charging',
+    vs_pv_label: 'PV Self-Consumption Saving',
+    vs_pv_sub: 'Already included in Energy bar · shown for reference',
+    vs_vpp_label: 'VPP / Balancing Market',
+    vs_vpp_note: '§14a set to 0 — mutually exclusive with VPP',
+    // Reset
+    reset_label: '↺ Reset',
+    // Section labels
+    sec_general: 'General Parameters',
+    sec_heat: 'Heat Demand',
+    sec_pv: 'PV System',
+    sec_ep: '⬡ ElephantONE',
+    sec_hp: '⬡ Standard HP',
+    sec_gas: '⬡ Gas Boiler',
+    sec_valstack: '⚡ Value Stacking (EP only)',
+  },
+  zh: {
+    title: 'ElephantONE vs 標準熱泵 vs 燃氣鍋爐 — TCO / LCOH 計算器',
+    subtitle: '均化供熱成本 · 資料來源: 260224_TCO_Tool_Technology_Comparison.xlsx',
+    mode_hint: '模式',
+    mode_light: '精簡',
+    mode_full: '完整',
+    light_fixed: n => `▸ ${n} 個固定參數`,
+    light_hide:  n => `▾ 收起 ${n} 個參數`,
+    lcoh_title: 'LCOH 成本分解',
+    lcoh_legend_hint: '點擊圖例切換顯示',
+    vt_annual: '€/年',
+    vt_lifetime: '總計 €',
+    chart_capex: '資本支出',
+    chart_opex: '營運支出',
+    chart_energy: '能源',
+    chart_carbon: '碳排放',
+    chart_revenue: '收入 (EP)',
+    chart_revenue_suffix: '  ↓ 降低淨成本',
+    y_lcoh: 'LCOH  (€/kWh)',
+    y_annual: '年度成本  (€/年)',
+    y_lifetime: '總生命週期成本  (€)',
+    net_lcoh: '淨 LCOH',
+    net: '淨額',
+    bar_ep: 'ElephantONE',
+    bar_hp: '標準熱泵',
+    bar_gas: '燃氣鍋爐',
+    cum_title: '損益兩平與回收期 vs. 燃氣鍋爐',
+    cum_savings: '相對燃氣節省',
+    cum_absolute: '絕對成本',
+    cum_y_savings: '累計節省 vs. 燃氣 (€)',
+    cum_y_absolute: '累計成本 (€)',
+    cum_ep_sav: 'ElephantONE 節省',
+    cum_hp_sav: '標準熱泵節省',
+    cum_gas_base: '燃氣鍋爐 (基準 €0)',
+    today: '今日',
+    yr: n => `第 ${n} 年`,
+    pb_ep_ok:   (yr, sav, lt) => `⚡ ElephantONE：第 ${yr} 年回收 · ${lt} 年節省 ${sav}`,
+    pb_ep_none: lt => `ElephantONE：${lt} 年內未回收`,
+    pb_hp_ok:   (yr, sav, lt) => `🔵 標準熱泵：第 ${yr} 年回收 · ${lt} 年節省 ${sav}`,
+    pb_hp_none: lt => `標準熱泵：${lt} 年內未回收`,
+    tc_capex: '資本支出', tc_opex: '營運支出', tc_energy: '能源', tc_carbon: '碳排放',
+    tc_valstack: '價值堆疊', tc_total: '合計', tc_subsidy: '補貼',
+    tc_haas_note: 'HaaS 租賃模式啟用中',
+    sav_vs_gas: 'vs. 燃氣鍋爐',
+    sav_per_year: '每年',
+    sav_more_expensive: '每年 — 更昂貴',
+    sav_over: n => `${n} 年累計`,
+    sav_cost_reduction: '成本降低',
+    co2_title: 'CO₂ 排放',
+    co2_per_year: '每年',
+    co2_over: (kg, n) => `${n} 年共 ${kg}`,
+    co2_vs_gas: pct => `−${pct}% vs 燃氣`,
+    co2_baseline: '基準',
+    co2_note_prefix: '電網電力',
+    co2_note_gas: '天然氣',
+    co2_note_pv: '太陽能自用電力以零碳計算',
+    co2_note_carbon: '碳價格',
+    dv_pv_lcoe: 'PV LCOE',
+    dv_lcoe_ep: 'ElephantONE（含逆變器及電池）',
+    dv_lcoe_hp: '標準熱泵（含逆變器）',
+    dv_blend_ep: '混合價格 ElephantONE',
+    dv_blend_hp: '混合價格 標準熱泵',
+    dv_energy_demand: '年度能源需求',
+    dv_elec_ep: 'ElephantONE 用電（含損耗）',
+    dv_elec_hp: '標準熱泵用電',
+    dv_gas_cons: '燃氣消耗',
+    dv_subsidy_capex: '補貼與總投資',
+    dv_sub_ep: 'ElephantONE 補貼',
+    dv_sub_hp: '標準熱泵補貼',
+    dv_capex_ep: 'ElephantONE 總 CAPEX（含 PV）',
+    dv_capex_hp: '標準熱泵總 CAPEX（含 PV）',
+    dv_capex_gas: '燃氣鍋爐總 CAPEX',
+    verify_title: '與預設參數驗證比較',
+    verify_metric: '指標', verify_expected: '預期值',
+    badge_ok: '✓ 全部驗證通過', badge_fail: '⚠ 預設值已變更',
+    sc_pessimistic: '悲觀', sc_balanced: '均衡', sc_optimistic: '樂觀',
+    pr_passivhaus: '被動式房屋', pr_geg2020: 'GEG 2020', pr_bestand1980: '1980年後', pr_altbau: '1978年前',
+    bc_0: '被動式房屋',            bc_1: '高效節能 40',         bc_2: '高效節能 55',
+    bc_3: 'GEG 2020',              bc_4: '2002–2009 新建',      bc_5: '1995 標準',
+    bc_6: '1980年後',              bc_7: '1978年前',
+    ht_0: '地板暖氣 (供水 35°C)',  ht_1: '地板暖氣 (供水 30°C)',
+    ht_2: '混合系統 (VL 45°C)',    ht_3: '混合系統 (VL 40°C)',
+    ht_4: '舊式暖氣片 (VL 50°C)', ht_5: '舊式暖氣片 (VL 60°C)',
+    fin_buy: '購買', fin_haas: 'HaaS 租賃',
+    bc_label: '建築類別', ht_label: '暖氣系統類型（設定 SCOP）',
+    bc_area: '居住面積', bc_persons: '人數', bc_computed: '→ 計算熱需求',
+    vs_auto_note: '根據您的用電量自動計算 — 隨所有滑桿更新',
+    vs_14a_label: '§14a 電網費用減免',
+    vs_14a_sub: '自動：電網 kWh × 4.0 ct/kWh · VPP 啟用時為 0',
+    vs_arb_label: '動態電價套利',
+    vs_ev_label: '電動車 (充電樁) 充電',
+    vs_pv_label: 'PV 自用電力節省',
+    vs_pv_sub: '已包含於能源列 · 僅供參考',
+    vs_vpp_label: 'VPP / 平衡市場',
+    vs_vpp_note: '§14a 設為 0 — 與 VPP 互斥',
+    reset_label: '↺ 重設',
+    sec_general: '一般參數',
+    sec_heat: '熱需求',
+    sec_pv: 'PV 太陽能系統',
+    sec_ep: '⬡ ElephantONE',
+    sec_hp: '⬡ 標準熱泵',
+    sec_gas: '⬡ 燃氣鍋爐',
+    sec_valstack: '⚡ 價值堆疊（僅 EP）',
+  }
+};
+
+let LANG = localStorage.getItem('haas_lang') || 'en';
+const T  = key => (STRINGS[LANG]?.[key] ?? STRINGS.en[key] ?? key);
+const Tf = (key, ...args) => { const v = T(key); return typeof v === 'function' ? v(...args) : v; };
+
+// ── Light Mode params ──────────────────────────────────────────────────────
+const LIGHT_PARAMS = new Set([
+  'lifetime','subsidy_rate','scop_ep','scop_hp','boiler_efficiency','self_consumption_ep','self_consumption_hp',
+  'total_heat','heat_losses_ep',
+  'pv_power_kw','full_load_hours',
+  'haas_monthly_fee','ep_box','ep_radiator_piping','ep_foundation','ep_core_drilling','ep_piping',
+  'hp_unit','hp_dhw_buffer','hp_radiator_piping','hp_foundation','hp_core_drilling','hp_piping_electrical',
+  'gas_boiler_unit','gas_installation','gas_decommissioning','gas_service','gas_chimney_sweep','gas_base_price',
+  'dynamic_tariff_rate',
+]);
+
+// ── Reference data ─────────────────────────────────────────────────────────
+const BUILDING_CLASSES = [
+  { en:'Passivhaus',                    zh:'被動式房屋',          kwh_m2a: 21.25 },
+  { en:'Effizienzhaus 40',             zh:'高效節能 40',        kwh_m2a: 34.0  },
+  { en:'Effizienzhaus 55',             zh:'高效節能 55',        kwh_m2a: 46.75 },
+  { en:'GEG 2020',                      zh:'GEG 2020',           kwh_m2a: 55.25 },
+  { en:'Neubau nach EnEV 2002–2009',    zh:'2002–2009 新建',     kwh_m2a: 72.25 },
+  { en:'Bestand nach WSchV 95',         zh:'1995 標準',          kwh_m2a:102.0  },
+  { en:'Bestand ab 1980',               zh:'1980年後',           kwh_m2a:136.0  },
+  { en:'Bestand vor 1978',              zh:'1978年前',           kwh_m2a:195.5  },
+];
+
+const HEATING_TYPES = [
+  { en:'Fußbodenheizung (Vorlauf 35°C)',  zh:'地板暖氣 (供水 35°C)',  scop:4.5 },
+  { en:'Fußbodenheizung (Vorlauf 30°C)',  zh:'地板暖氣 (供水 30°C)',  scop:4.9 },
+  { en:'Gemischtes System (VL 45°C)',     zh:'混合系統 (VL 45°C)',    scop:3.2 },
+  { en:'Gemischtes System (VL 40°C)',     zh:'混合系統 (VL 40°C)',    scop:3.7 },
+  { en:'Alte Radiatoren (VL 50°C)',       zh:'舊式暖氣片 (VL 50°C)', scop:2.8 },
+  { en:'Alte Radiatoren (VL 60°C)',       zh:'舊式暖氣片 (VL 60°C)', scop:2.4 },
+];
+
+const PRESETS = [
+  { en:'Passivhaus',  zh:'被動式房屋', params:{ total_heat:5500,  scop_ep:4.5, scop_hp:4.5, pv_power_kw:10, self_consumption_ep:0.60, self_consumption_hp:0.50 } },
+  { en:'GEG 2020',    zh:'GEG 2020',   params:{ total_heat:11350, scop_ep:3.7, scop_hp:3.7, pv_power_kw:12 } },
+  { en:'Bestand 1980',zh:'1980年後',   params:{ total_heat:23460, scop_ep:3.4, scop_hp:3.4, pv_power_kw:12 } },
+  { en:'Altbau <1978',zh:'1978年前',   params:{ total_heat:32400, scop_ep:2.8, scop_hp:2.8, pv_power_kw:12 } },
+];
+
+const SCENARIO_PRESETS = [
+  { en:'Pessimistic', zh:'悲觀', params:{ electricity_price_ep:0.22, electricity_price_hp:0.24, gas_price_avg:0.12, subsidy_rate:0.20, lifetime:13, carbon_price:55,  dynamic_tariff_rate:0.018 } },
+  { en:'Balanced',    zh:'均衡', params:{ electricity_price_ep:0.17, electricity_price_hp:0.21, gas_price_avg:0.14, subsidy_rate:0.35, lifetime:15, carbon_price:65,  dynamic_tariff_rate:0.030 } },
+  { en:'Optimistic',  zh:'樂觀', params:{ electricity_price_ep:0.13, electricity_price_hp:0.19, gas_price_avg:0.18, subsidy_rate:0.45, lifetime:20, carbon_price:130, dynamic_tariff_rate:0.045 } },
+];
+let activeScenario = 1;
+let activePreset = -1;
+
+// ── Parameter sections ─────────────────────────────────────────────────────
+const SECTIONS = [
+  {
+    id:'general', labelKey:'sec_general', open:true,
+    params:[
+      { key:'lifetime',            label:{en:'System Lifetime',zh:'系統壽命'},                   val:15,   min:10,  max:25,   step:1,     unit:'yr',
+        tip:{en:'Years over which CAPEX is amortised. Longer lifetime = lower annual CAPEX share.',zh:'CAPEX 攤銷年限。壽命越長，年度 CAPEX 佔比越低。'} },
+      { key:'subsidy_rate',        label:{en:'Subsidy Rate (BEG)',zh:'補貼率 (BEG)'},            val:0.35, min:0,   max:0.70, step:0.01,  unit:'%', x:100,
+        tip:{en:'BEG base subsidy rate applied to eligible CAPEX. Can be up to 50% with income bonus or serial renovation premium.',zh:'BEG 基本補貼率，適用於符合條件的 CAPEX。含收入獎金或翻新獎金最高可達 50%。'} },
+      { key:'scop_ep',             label:{en:'SCOP ElephantONE',zh:'SCOP ElephantONE'},          val:3.4,  min:2.0, max:5.5,  step:0.1,
+        tip:{en:'Seasonal COP: ratio of annual heat delivered to electrical energy consumed. Set automatically by heating type selection.',zh:'季節性能係數：年供熱量與耗電量之比。由暖氣類型自動設定。'} },
+      { key:'scop_hp',             label:{en:'SCOP Standard HP',zh:'SCOP 標準熱泵'},             val:3.4,  min:2.0, max:5.5,  step:0.1,
+        tip:{en:'Seasonal COP for the standard heat pump. Depends on supply temperature and climate zone.',zh:'標準熱泵的季節性能係數。取決於供水溫度和氣候區域。'} },
+      { key:'boiler_efficiency',   label:{en:'Gas Boiler Efficiency',zh:'燃氣鍋爐效率'},         val:0.95, min:0.8, max:1.0,  step:0.01,  unit:'%', x:100,
+        tip:{en:'Seasonal efficiency of condensing boiler (Brennwert). Typically 0.93–0.97 for modern units.',zh:'冷凝鍋爐季節效率。現代設備通常為 0.93–0.97。'} },
+      { key:'self_consumption_ep', label:{en:'Self-Consumption Rate ElephantONE',zh:'自用率 ElephantONE'}, val:0.55, min:0.2, max:0.8, step:0.01, unit:'%', x:100,
+        tip:{en:'Share of PV generation consumed directly. Higher for ElephantONE due to integrated battery storage (≈55% vs 30% without battery).',zh:'PV 發電直接消耗比例。ElephantONE 因內建電池儲能較高（約 55% vs 無電池 30%）。'} },
+      { key:'self_consumption_hp', label:{en:'Self-Consumption Rate Standard HP',zh:'自用率 標準熱泵'}, val:0.30, min:0.1, max:0.6, step:0.01, unit:'%', x:100,
+        tip:{en:'Share of PV consumed on-site without battery. Typically 25–35% for a residential system without storage.',zh:'無電池時 PV 現場消耗比例。一般住宅系統約 25–35%。'} },
+      { key:'electricity_price_ep',label:{en:'Grid Price ElephantONE',zh:'電網價格 ElephantONE'}, val:0.17, min:0.1, max:0.4, step:0.005, unit:'€/kWh',
+        tip:{en:'Reduced grid tariff under §14a / §22 EnFG for controllable loads. Lower than standard household tariff.',zh:'§14a / §22 EnFG 可控負載優惠電價。低於一般家庭電價。'} },
+      { key:'electricity_price_hp',label:{en:'Grid Price Standard HP',zh:'電網價格 標準熱泵'},     val:0.21, min:0.1, max:0.4, step:0.005, unit:'€/kWh',
+        tip:{en:'Reduced heat pump tariff. Higher than ElephantONE tariff as no §14a integration assumed.',zh:'熱泵優惠電價。因未假設 §14a 整合，高於 ElephantONE 電價。'} },
+      { key:'gas_price_avg',       label:{en:'Average Gas Price',zh:'平均燃氣價格'},              val:0.14, min:0.08,max:0.3, step:0.005, unit:'€/kWh',
+        tip:{en:'Working price for natural gas. German household average 2024 ≈ 0.10–0.15 €/kWh depending on contract.',zh:'天然氣工作價格。2024 年德國家庭平均約 0.10–0.15 €/kWh。'} },
+      { key:'co2_electricity',     label:{en:'CO₂ factor electricity',zh:'CO₂ 係數 電力'},       val:0.380,min:0.1, max:0.7, step:0.01, unit:'kg/kWh',
+        tip:{en:'Grid electricity CO₂ intensity. Germany 2023 (UBA): ~0.380 kg CO₂eq/kWh. Declining with renewable expansion.',zh:'電網電力 CO₂ 強度。德國 2023 年 (UBA)：約 0.380 kg CO₂eq/kWh。'} },
+      { key:'co2_gas',             label:{en:'CO₂ factor gas',zh:'CO₂ 係數 燃氣'},              val:0.202,min:0.15,max:0.30,step:0.001, unit:'kg/kWh',
+        tip:{en:'Natural gas combustion CO₂ factor (net calorific value, VDI 4600). Does not include upstream methane losses.',zh:'天然氣燃燒 CO₂ 係數（淨熱值，VDI 4600）。不含上游甲烷洩漏。'} },
+      { key:'carbon_price',        label:{en:'Carbon Price',zh:'碳價格'},                        val:65,   min:0,   max:200, step:5,     unit:'€/tCO₂',
+        tip:{en:'CO₂ price in €/tonne added as a cost component. Applies to all systems based on their annual CO₂ emissions. Set to 0 to disable.',zh:'CO₂ 價格（€/噸）作為成本組成。依年度 CO₂ 排放量適用於所有系統。設為 0 停用。'} },
+    ]
+  },
+  {
+    id:'heat', labelKey:'sec_heat', open:true,
+    buildingConfig: true,
+    params:[
+      { key:'total_heat',    label:{en:'Total Heat Demand / Year',zh:'年度總熱需求'},                   val:18000, min:5000, max:40000, step:500, unit:'kWh/a',
+        tip:{en:'Annual space heating + domestic hot water demand. Auto-calculated from building class and area, or set manually.',zh:'年度空間供暖 + 生活熱水需求。可由建築類別和面積自動計算或手動設定。'} },
+      { key:'heat_losses_ep',label:{en:'Heat Losses ElephantONE (buffer/DHW tank)',zh:'ElephantONE 熱損耗（緩衝/DHW 儲罐）'}, val:1460, min:500, max:3000, step:100, unit:'kWh/a',
+        tip:{en:'Standing thermal losses from integrated buffer and DHW tank. Approx. 4 W/K × 365 days = 1,460 kWh/a.',zh:'整合緩衝和 DHW 儲罐的靜態熱損耗。約 4 W/K × 365 天 = 1,460 kWh/a。'} },
+    ]
+  },
+  {
+    id:'pv', labelKey:'sec_pv', open:true,
+    params:[
+      { key:'pv_power_kw',     label:{en:'PV System Size',zh:'PV 系統容量'},            val:12,    min:5,    max:20,   step:1,     unit:'kWp',
+        tip:{en:'Installed peak power of the PV array.',zh:'PV 陣列安裝峰值功率。'} },
+      { key:'pv_cost_per_kw',  label:{en:'PV Investment Cost/kWp',zh:'PV 投資成本/kWp'},  val:1100,  min:700,  max:1800, step:50,    unit:'€/kWp',
+        tip:{en:'Turnkey PV installation cost per kWp. Does NOT include inverter (separate for Standard HP, integrated in ElephantONE).',zh:'交鑰匙 PV 安裝每 kWp 成本。不含逆變器（標準熱泵另計，ElephantONE 已整合）。'} },
+      { key:'inverter_cost',   label:{en:'Inverter Cost (HP only)',zh:'逆變器成本（僅熱泵）'}, val:1200, min:500, max:3000, step:100, unit:'€',
+        tip:{en:'Separate string inverter for the Standard HP PV system. Not applicable to ElephantONE (inverter integrated in unit).',zh:'標準熱泵 PV 系統的獨立串列逆變器。不適用於 ElephantONE（逆變器已整合）。'} },
+      { key:'pv_service_cost', label:{en:'PV Service & Insurance/yr',zh:'PV 服務及保險/年'},  val:70, min:30, max:200, step:10, unit:'€/a',
+        tip:{en:'Annual maintenance, monitoring, and insurance for the PV system.',zh:'PV 系統年度維護、監控及保險。'} },
+      { key:'full_load_hours', label:{en:'Full Load Hours',zh:'滿載小時數'},             val:900,   min:700,  max:1200, step:50,    unit:'h',
+        tip:{en:'Equivalent full-power operating hours per year. Germany average: 900–1,050 h/yr depending on location and roof angle.',zh:'年等效滿載運行小時。德國平均：900–1,050 h/yr。'} },
+      { key:'degradation_rate',label:{en:'PV Degradation Rate',zh:'PV 衰減率'},          val:0.005, min:0.002,max:0.01, step:0.001, unit:'%', x:100,
+        tip:{en:'Annual output decline due to panel ageing. Modern panels: 0.4–0.6%/yr, older panels up to 0.8%/yr.',zh:'面板老化導致的年產出衰減。現代面板：0.4–0.6%/yr。'} },
+      { key:'discount_rate_pv',label:{en:'Discount Rate for PV LCOE',zh:'PV LCOE 折現率'}, val:0.04, min:0.01, max:0.08, step:0.005, unit:'%', x:100,
+        tip:{en:'Rate used to discount future PV O&M costs in the LCOE calculation.',zh:'LCOE 計算中用於折現未來 PV 營運維護成本的折現率。'} },
+      { key:'pv_lifetime',     label:{en:'PV System Lifetime',zh:'PV 系統壽命'},          val:20,    min:15,   max:30,   step:1,     unit:'yr',
+        tip:{en:'Economic lifetime over which PV investment is amortised. Panel warranties typically cover 25–30 years.',zh:'PV 投資攤銷的經濟壽命。面板保固通常涵蓋 25–30 年。'} },
+    ]
+  },
+  {
+    id:'valstack', labelKey:'sec_valstack', open:false, color:'var(--ep)',
+    isValueStack: true,
+    params:[
+      { key:'dynamic_tariff_rate', label:{en:'Dynamic Tariff Benefit Rate',zh:'動態電價優惠費率'}, val:0.030, min:0.010, max:0.060, step:0.005, unit:'€/kWh',
+        tip:{en:'€/kWh saved on total household grid electricity through dynamic tariff vs. fixed contract. Pessimistic ~0.018, Balanced ~0.030, Optimistic ~0.045.',zh:'透過動態電價 vs. 固定合約，每 kWh 家庭電網用電節省金額。悲觀 ≈0.018，均衡 ≈0.030，樂觀 ≈0.045。'} },
+      { key:'vs_22enfg',     label:{en:'§22 EnFG smart meter bonus/yr',zh:'§22 EnFG 智慧電表獎金/年'},  val:0,   min:0, max:120, step:10, unit:'€/a',
+        tip:{en:'Annual smart meter subsidy under §22 EnFG for eligible installations. Typ. 30–80 €/yr.',zh:'§22 EnFG 合格安裝的年度智慧電表補貼。通常 30–80 €/年。'} },
+      { key:'vs_balancing',  label:{en:'Balancing / VPP market revenue/yr',zh:'平衡 / VPP 市場收入/年'}, val:200, min:0, max:600, step:25, unit:'€/a',
+        isVppParam: true,
+        tip:{en:'Revenue from frequency regulation / balancing market via VPP. When active, §14a is set to 0 (they are mutually exclusive).',zh:'透過 VPP 參與頻率調整/平衡市場的收入。啟用時 §14a 設為 0（互斥）。'} },
+    ]
+  },
+  {
+    id:'ep', labelKey:'sec_ep', open:false, color:'var(--ep)',
+    params:[
+      { key:'haas_monthly_fee',   label:{en:'HaaS Monthly Fee',zh:'HaaS 月費'},                    val:99,    min:30,   max:300,   step:5,   unit:'€/mo',
+        tip:{en:'Monthly lease fee in HaaS (Heat-as-a-Service) model. In Buy mode this field is ignored.',zh:'HaaS（熱即服務）模式月租費。購買模式下忽略此欄位。'} },
+      { key:'ep_box',             label:{en:'ElephantONE Unit (inverter, battery, buffer & DHW integrated)',zh:'ElephantONE 主機（含逆變器、電池、緩衝及 DHW）'}, val:15000, min:10000,max:25000, step:500, unit:'€' },
+      { key:'ep_radiator_piping', label:{en:'Radiator Replacement + Piping + Decomm.',zh:'暖氣片更換 + 管路 + 拆除'},  val:3000,  min:1000, max:8000,  step:250, unit:'€' },
+      { key:'ep_heating_calc',    label:{en:'Heating Load Calc & Hydraulic Balancing',zh:'熱負荷計算及水力平衡'}, val:1500, min:800,  max:3000,  step:100, unit:'€' },
+      { key:'ep_logistics',       label:{en:'Logistics',zh:'物流'},                                  val:800,  min:300,  max:1500,  step:100, unit:'€' },
+      { key:'ep_crane',           label:{en:'Crane',zh:'吊車'},                                      val:400,  min:0,    max:1000,  step:100, unit:'€' },
+      { key:'ep_foundation',      label:{en:'Foundation & Groundwork',zh:'地基及土建'},               val:800,  min:300,  max:2000,  step:100, unit:'€' },
+      { key:'ep_core_drilling',   label:{en:'Core Drilling + Sealings',zh:'核心鑽孔 + 密封'},        val:800,  min:300,  max:1500,  step:100, unit:'€' },
+      { key:'ep_piping',          label:{en:'Piping & Installation',zh:'管路及安裝'},                 val:2300, min:1000, max:5000,  step:100, unit:'€' },
+      { key:'ep_service',         label:{en:'Service Cost/yr',zh:'服務費/年'},                        val:500,  min:200,  max:1000,  step:50,  unit:'€/a' },
+      { key:'ep_warranty',        label:{en:'Warranty/yr',zh:'保固/年'},                              val:50,   min:0,    max:200,   step:10,  unit:'€/a' },
+      { key:'ep_metering',        label:{en:'Metering/yr',zh:'計量/年'},                              val:50,   min:0,    max:150,   step:10,  unit:'€/a' },
+      { key:'ep_spare_parts',     label:{en:'Spare Parts/yr',zh:'備件/年'},                           val:50,   min:0,    max:200,   step:10,  unit:'€/a' },
+      { key:'ep_electricity_base',label:{en:'Electricity Base Price/yr',zh:'電力基本費/年'},           val:170,  min:100,  max:300,   step:10,  unit:'€/a' },
+    ]
+  },
+  {
+    id:'hp', labelKey:'sec_hp', open:false, color:'var(--hp)',
+    params:[
+      { key:'hp_unit',              label:{en:'Heat Pump Unit (incl. Margin)',zh:'熱泵主機（含利潤）'},           val:12000, min:8000,  max:20000, step:500, unit:'€' },
+      { key:'hp_radiator_piping',   label:{en:'Radiator Replacement + Piping + Decomm.',zh:'暖氣片更換 + 管路 + 拆除'}, val:3000, min:1000, max:8000, step:250, unit:'€' },
+      { key:'hp_heating_calc',      label:{en:'Heating Load Calc & Hydraulic Balancing',zh:'熱負荷計算及水力平衡'}, val:1500, min:800, max:3000, step:100, unit:'€' },
+      { key:'hp_dhw_buffer',        label:{en:'DHW Tanks + Buffer Tank + Hydraulics',zh:'DHW 水箱 + 緩衝箱 + 水力系統'},    val:6000,  min:3000,  max:12000, step:500, unit:'€' },
+      { key:'hp_logistics',         label:{en:'Logistics',zh:'物流'},                               val:250,   min:100,   max:800,   step:50,  unit:'€' },
+      { key:'hp_foundation',        label:{en:'Foundation & Groundwork',zh:'地基及土建'},            val:2500,  min:1000,  max:5000,  step:250, unit:'€' },
+      { key:'hp_core_drilling',     label:{en:'Core Drilling + Sealings',zh:'核心鑽孔 + 密封'},     val:600,   min:200,   max:1500,  step:100, unit:'€' },
+      { key:'hp_piping_electrical', label:{en:'Piping & Electrical Installation',zh:'管路及電氣安裝'}, val:3900, min:2000, max:8000, step:100, unit:'€' },
+      { key:'hp_service',           label:{en:'Service Cost/yr',zh:'服務費/年'},                      val:400,   min:200,   max:800,   step:50,  unit:'€/a' },
+      { key:'hp_warranty',          label:{en:'Warranty/yr',zh:'保固/年'},                            val:50,    min:0,     max:200,   step:10,  unit:'€/a' },
+      { key:'hp_metering',          label:{en:'Metering/yr',zh:'計量/年'},                            val:50,    min:0,     max:150,   step:10,  unit:'€/a' },
+      { key:'hp_spare_parts',       label:{en:'Spare Parts/yr',zh:'備件/年'},                         val:50,    min:0,     max:200,   step:10,  unit:'€/a' },
+      { key:'hp_electricity_base',  label:{en:'Electricity Base Price/yr',zh:'電力基本費/年'},         val:170,   min:100,   max:300,   step:10,  unit:'€/a' },
+    ]
+  },
+  {
+    id:'gas', labelKey:'sec_gas', open:false, color:'var(--gas)',
+    params:[
+      { key:'gas_boiler_unit',    label:{en:'Gas Boiler (incl. Chimney)',zh:'燃氣鍋爐（含煙囪）'},       val:9000, min:5000, max:15000, step:500, unit:'€' },
+      { key:'gas_decommissioning',label:{en:'Decommissioning Old Heating',zh:'舊暖氣拆除'},              val:800,  min:300,  max:2000,  step:100, unit:'€' },
+      { key:'gas_heating_calc',   label:{en:'Heating Load Calc & Hydraulic Balancing',zh:'熱負荷計算及水力平衡'}, val:550, min:300, max:1500, step:50, unit:'€' },
+      { key:'gas_logistics',      label:{en:'Logistics',zh:'物流'},                                val:250,  min:100,  max:800,   step:50,  unit:'€' },
+      { key:'gas_installation',   label:{en:'Installation',zh:'安裝'},                             val:3000, min:1500, max:6000,  step:250, unit:'€' },
+      { key:'gas_service',        label:{en:'Service Cost/yr',zh:'服務費/年'},                       val:200,  min:100,  max:500,   step:25,  unit:'€/a' },
+      { key:'gas_warranty',       label:{en:'Warranty/yr',zh:'保固/年'},                             val:50,   min:0,    max:200,   step:10,  unit:'€/a' },
+      { key:'gas_metering',       label:{en:'Metering/yr',zh:'計量/年'},                             val:50,   min:0,    max:150,   step:10,  unit:'€/a' },
+      { key:'gas_chimney_sweep',  label:{en:'Chimney Sweep/yr',zh:'煙囪清掃/年'},                    val:80,   min:30,   max:200,   step:10,  unit:'€/a' },
+      { key:'gas_base_price',     label:{en:'Gas Base Price/yr',zh:'燃氣基本費/年'},                  val:150,  min:80,   max:300,   step:10,  unit:'€/a' },
+    ]
+  },
+];
+
+// ── State ──────────────────────────────────────────────────────────────────
+const DEFAULTS = {};
+SECTIONS.forEach(s => s.params.forEach(p => { DEFAULTS[p.key] = p.val; }));
+const S = { ...DEFAULTS };
+
+const BC = { cls:5, area:150, persons:4 };
+
+let VIEW = 'lcoh';
+let FIN_MODE = 'buy';
+let HAS_EV = false;
+let VPP_ENABLED = false;
+let LIGHT_MODE = localStorage.getItem('haas_mode') !== 'full';
+
+const PARAM_MAP = {};
+SECTIONS.forEach(s => s.params.forEach(p => { PARAM_MAP[p.key] = p; }));
+
+// ── Helpers for bilingual fields ───────────────────────────────────────────
+function pLabel(p) { return (typeof p.label === 'object') ? (p.label[LANG] || p.label.en) : p.label; }
+function pTip(p)   { if (!p.tip) return ''; return (typeof p.tip === 'object') ? (p.tip[LANG] || p.tip.en) : p.tip; }
+
+// ── Language ───────────────────────────────────────────────────────────────
+function setLang(lang) {
+  LANG = lang;
+  localStorage.setItem('haas_lang', lang);
+  document.documentElement.lang = lang === 'zh' ? 'zh-Hant' : 'en';
+  document.getElementById('btn-en').classList.toggle('active-lang', lang === 'en');
+  document.getElementById('btn-zh').classList.toggle('active-lang', lang === 'zh');
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    const val = T(key);
+    if (typeof val === 'string') el.textContent = val;
+  });
+  if (typeof chart !== 'undefined' && chart) { chart.destroy(); chart = null; }
+  if (typeof cumChart !== 'undefined' && cumChart) { cumChart.destroy(); cumChart = null; }
+  renderScenarioBar();
+  renderPresets();
+  renderSidebar();
+  updateAll();
+}
+
+// ── Mode toggle ────────────────────────────────────────────────────────────
+function setMode(mode) {
+  LIGHT_MODE = (mode === 'light');
+  localStorage.setItem('haas_mode', LIGHT_MODE ? 'light' : 'full');
+  document.getElementById('btn-light').classList.toggle('active-mode', LIGHT_MODE);
+  document.getElementById('btn-full').classList.toggle('active-mode', !LIGHT_MODE);
+  renderSidebar();
+}
+
+// ── Building config helpers ────────────────────────────────────────────────
+function computeHeatFromBC() {
+  const dhw = BC.persons * 40 * (55 - 10) * 0.425;
+  return Math.round(BUILDING_CLASSES[BC.cls].kwh_m2a * BC.area + dhw);
+}
+
+// ── Formatters ─────────────────────────────────────────────────────────────
+const fmtC  = v => v.toLocaleString('de-DE', { style:'currency', currency:'EUR', maximumFractionDigits:0 });
+const fmtKg = v => v < 1000 ? Math.round(v) + ' kg' : (v/1000).toFixed(1) + ' t';
+
+function displayVal(p) {
+  const v = S[p.key];
+  if (p.unit === '%')       return (v * (p.x||1)).toFixed(p.step < 0.01 ? 2 : 1) + ' %';
+  if (p.unit === '€' || p.unit === '€/a' || p.unit === '€/kWp') return fmtC(v);
+  if (p.unit === '€/mo')    return fmtC(v) + '/mo';
+  if (p.unit === 'kWh/a')  return v.toLocaleString('de-DE') + ' kWh/a';
+  if (p.unit === 'yr')     return v + ' yr';
+  if (p.unit === 'kWp')    return v + ' kWp';
+  if (p.unit === 'h')      return v + ' h';
+  if (p.unit === '€/kWh')  return v.toFixed(3) + ' €/kWh';
+  if (p.unit === 'kg/kWh') return v.toFixed(3) + ' kg/kWh';
+  if (p.unit === '€/tCO₂') return v.toFixed(0) + ' €/tCO₂';
+  return String(v);
+}
+
+function viewFmt(lcoh, s) {
+  if (VIEW === 'lcoh')     return lcoh.toFixed(4) + ' €/kWh';
+  if (VIEW === 'annual')   return fmtC(lcoh * s.total_heat);
+  return fmtC(lcoh * s.total_heat * s.lifetime);
+}
+function viewScale(s) {
+  if (VIEW === 'lcoh')     return 1;
+  if (VIEW === 'annual')   return s.total_heat;
+  return s.total_heat * s.lifetime;
+}
+function viewYLabel() {
+  if (VIEW === 'lcoh')     return T('y_lcoh');
+  if (VIEW === 'annual')   return T('y_annual');
+  return T('y_lifetime');
+}
+function viewTickFmt(v) {
+  if (VIEW === 'lcoh')   return v.toFixed(3);
+  if (VIEW === 'annual') return (v/1000).toFixed(0) + 'k';
+  return (v/1000).toFixed(0) + 'k';
+}
+function viewTooltipFmt(v) {
+  if (VIEW === 'lcoh') return v.toFixed(4) + ' €/kWh';
+  return fmtC(v);
+}
+
+// ── Calculation ────────────────────────────────────────────────────────────
+function calculate(s) {
+  const gen1 = s.pv_power_kw * s.full_load_hours;
+  let sum_gen = 0, sum_pv_opex = 0;
+  for (let t = 1; t <= s.pv_lifetime; t++) {
+    sum_gen     += gen1 * Math.pow(1 - s.degradation_rate, t - 1);
+    sum_pv_opex += s.pv_service_cost / Math.pow(1 + s.discount_rate_pv, t);
+  }
+  const pv_cost_ep = s.pv_power_kw * s.pv_cost_per_kw;
+  const pv_cost_hp = s.pv_power_kw * s.pv_cost_per_kw + s.inverter_cost;
+  const lcoe_ep = (pv_cost_ep + sum_pv_opex) / sum_gen;
+  const lcoe_hp = (pv_cost_hp + sum_pv_opex) / sum_gen;
+
+  const blend_ep = s.self_consumption_ep * lcoe_ep + (1 - s.self_consumption_ep) * s.electricity_price_ep;
+  const blend_hp = s.self_consumption_hp * lcoe_hp + (1 - s.self_consumption_hp) * s.electricity_price_hp;
+
+  const elec_ep  = (s.total_heat + s.heat_losses_ep) / s.scop_ep;
+  const elec_hp  = s.total_heat / s.scop_hp;
+  const gas_cons = s.total_heat / s.boiler_efficiency;
+
+  const ep_hw   = s.ep_box + s.ep_radiator_piping + s.ep_heating_calc;
+  const ep_inst = s.ep_logistics + s.ep_crane + s.ep_foundation + s.ep_core_drilling + s.ep_piping;
+  const ep_sub  = (ep_inst + s.ep_heating_calc + s.ep_radiator_piping + s.ep_box * 0.7) * s.subsidy_rate;
+  const ep_opex = s.ep_service + s.ep_warranty + s.ep_metering + s.ep_spare_parts;
+
+  let ep_c, ep_sub_eff, ep_capex_val;
+  if (FIN_MODE === 'haas') {
+    ep_c = (s.haas_monthly_fee * 12) / s.total_heat;
+    ep_sub_eff = 0; ep_capex_val = 0;
+  } else {
+    ep_c = ((ep_hw + ep_inst - ep_sub) / s.lifetime) / s.total_heat;
+    ep_sub_eff = ep_sub; ep_capex_val = ep_hw + ep_inst;
+  }
+  const ep_o = ep_opex / s.total_heat;
+  const ep_e = (s.ep_electricity_base + blend_ep * elec_ep) / s.total_heat;
+
+  const hp_hw   = s.hp_unit + s.hp_radiator_piping + s.hp_heating_calc + s.hp_dhw_buffer;
+  const hp_inst = s.hp_logistics + s.hp_foundation + s.hp_core_drilling + s.hp_piping_electrical;
+  const hp_sub  = (hp_inst + s.hp_heating_calc + s.hp_radiator_piping + s.hp_dhw_buffer + s.hp_unit) * s.subsidy_rate;
+  const hp_opex = s.hp_service + s.hp_warranty + s.hp_metering + s.hp_spare_parts;
+  const hp_c = ((hp_hw + hp_inst - hp_sub) / s.lifetime) / s.total_heat;
+  const hp_o = hp_opex / s.total_heat;
+  const hp_e = (s.hp_electricity_base + blend_hp * elec_hp) / s.total_heat;
+
+  const gas_hw   = s.gas_boiler_unit + s.gas_decommissioning + s.gas_heating_calc;
+  const gas_inst = s.gas_logistics + s.gas_installation;
+  const gas_opex = s.gas_service + s.gas_warranty + s.gas_metering + s.gas_chimney_sweep;
+  const gas_c = ((gas_hw + gas_inst) / s.lifetime) / s.total_heat;
+  const gas_o = gas_opex / s.total_heat;
+  const gas_e = (s.gas_base_price + s.gas_price_avg * s.total_heat / s.boiler_efficiency) / s.total_heat;
+
+  const co2_ep  = elec_ep  * (1 - s.self_consumption_ep) * s.co2_electricity;
+  const co2_hp  = elec_hp  * (1 - s.self_consumption_hp) * s.co2_electricity;
+  const co2_gas = gas_cons * s.co2_gas;
+
+  const carbon_ep  = co2_ep  * s.carbon_price / 1000 / s.total_heat;
+  const carbon_hp  = co2_hp  * s.carbon_price / 1000 / s.total_heat;
+  const carbon_gas = co2_gas * s.carbon_price / 1000 / s.total_heat;
+
+  const VS_14A_RATE = 0.040;
+  const grid_elec_ep = elec_ep * (1 - s.self_consumption_ep);
+  const vs_14a_auto = VPP_ENABLED ? 0 : grid_elec_ep * VS_14A_RATE;
+
+  const HOUSEHOLD_BASE_KWH = 3000;
+  const EV_KWH = HAS_EV ? 3500 : 0;
+  const total_grid_for_tariff = HOUSEHOLD_BASE_KWH + grid_elec_ep + EV_KWH;
+  const arb_auto = total_grid_for_tariff * s.dynamic_tariff_rate;
+
+  const pv_saving_ep_annual = elec_ep * s.self_consumption_ep * Math.max(0, s.electricity_price_ep - lcoe_ep);
+  const pv_saving_hp_annual = elec_hp * s.self_consumption_hp * Math.max(0, s.electricity_price_hp - lcoe_hp);
+
+  const vs_14a_eff = vs_14a_auto;
+  const vs_balancing_eff = VPP_ENABLED ? s.vs_balancing : 0;
+  const ep_revenue = (vs_14a_eff + s.vs_22enfg + arb_auto + vs_balancing_eff) / s.total_heat;
+
+  const ep_t_base = ep_c + ep_o + ep_e;
+  const ep_t = ep_c + ep_o + ep_e + carbon_ep - ep_revenue;
+  const hp_t = hp_c + hp_o + hp_e + carbon_hp;
+  const gas_t = gas_c + gas_o + gas_e + carbon_gas;
+
+  return {
+    ep:  { c:ep_c,  o:ep_o,  e:ep_e,  t:ep_t,   t_base:ep_t_base, sub:ep_sub_eff, capex:ep_capex_val, pv:pv_cost_ep, co2:co2_ep,  carbon:carbon_ep,  revenue:ep_revenue },
+    hp:  { c:hp_c,  o:hp_o,  e:hp_e,  t:hp_t,   t_base:hp_c+hp_o+hp_e, sub:hp_sub, capex:hp_hw+hp_inst, pv:pv_cost_hp, co2:co2_hp,  carbon:carbon_hp,  revenue:0 },
+    gas: { c:gas_c, o:gas_o, e:gas_e, t:gas_t,  t_base:gas_c+gas_o+gas_e, sub:0, capex:gas_hw+gas_inst, pv:0, co2:co2_gas, carbon:carbon_gas, revenue:0 },
+    lcoe_ep, lcoe_hp, blend_ep, blend_hp, elec_ep, elec_hp, gas_cons,
+    ep_sub_raw: ep_sub,
+    vs_14a_eff, vs_14a_auto, grid_elec_ep, arb_auto,
+    pv_saving_ep_annual, pv_saving_hp_annual,
+  };
+}
+
+// ── Verification ───────────────────────────────────────────────────────────
+const EXPECTED = {
+  ep:  { lcoh_total:0.1469, lcoh_capex:0.0651, lcoh_opex:0.0361, lcoh_energy:0.0458, subsidy:7035 },
+  hp:  { lcoh_total:0.1614, lcoh_capex:0.0716, lcoh_opex:0.0306, lcoh_energy:0.0593, subsidy:10412.5 },
+  gas: { lcoh_total:0.2355, lcoh_capex:0.0504, lcoh_opex:0.0294, lcoh_energy:0.1557, subsidy:0 },
+};
+
+// ── Inline value editing ───────────────────────────────────────────────────
+function startEdit(el, key) {
+  const p = PARAM_MAP[key]; if (!p) return;
+  const raw = S[key];
+  const dispV = p.x ? raw * p.x : raw;
+  const inp = document.createElement('input');
+  inp.type = 'number';
+  inp.value = parseFloat(dispV.toFixed(8));
+  inp.step  = p.x ? p.step * p.x : p.step;
+  inp.min   = p.x ? p.min  * p.x : p.min;
+  inp.max   = p.x ? p.max  * p.x : p.max;
+  inp.style.cssText = 'width:72px;font-size:.73rem;font-weight:700;border:1px solid var(--accent);border-radius:3px;padding:1px 4px;outline:none;background:var(--surface2);color:var(--text)';
+  const commit = () => {
+    let v = parseFloat(inp.value);
+    if (isNaN(v)) v = dispV;
+    const lo = p.x ? p.min * p.x : p.min;
+    const hi = p.x ? p.max * p.x : p.max;
+    v = Math.max(lo, Math.min(hi, v));
+    S[key] = p.x ? v / p.x : v;
+    const rng = document.getElementById('rng-' + key);
+    if (rng) rng.value = S[key];
+    el.textContent = displayVal(p);
+    el.style.display = '';
+    inp.remove();
+    activeScenario = -1; renderScenarioBar();
+    updateAll();
+  };
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { el.style.display = ''; inp.remove(); } });
+  inp.addEventListener('blur', commit);
+  el.style.display = 'none';
+  el.parentNode.insertBefore(inp, el.nextSibling);
+  inp.focus(); inp.select();
+}
+
+// ── Scenario bar ───────────────────────────────────────────────────────────
+function renderScenarioBar() {
+  const bar = document.getElementById('scenario-bar');
+  const names = ['pessimistic','balanced','optimistic'];
+  bar.innerHTML = SCENARIO_PRESETS.map((sc, i) =>
+    `<button class="scenario-btn ${names[i]}${activeScenario === i ? ' active' : ''}" onclick="applyScenario(${i})">${sc[LANG]||sc.en}</button>`
+  ).join('');
+}
+
+function applyScenario(idx) {
+  activeScenario = idx;
+  const sp = SCENARIO_PRESETS[idx];
+  Object.entries(sp.params).forEach(([k, v]) => {
+    S[k] = v;
+    const rng = document.getElementById('rng-' + k);
+    if (rng) rng.value = v;
+    const val = document.getElementById('val-' + k);
+    if (val && PARAM_MAP[k]) val.textContent = displayVal(PARAM_MAP[k]);
+  });
+  renderScenarioBar();
+  updateAll();
+}
+
+// ── Financing mode ─────────────────────────────────────────────────────────
+function setFinMode(mode) {
+  FIN_MODE = mode;
+  document.querySelectorAll('.fin-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === mode);
+  });
+  updateAll();
+}
+
+// ── Value stacking helpers ─────────────────────────────────────────────────
+function getValstackCustomHTML() {
+  const tip14a = LANG === 'zh'
+    ? '§14a EnWG：可控負載 ≥4.4kW 的電網費用減免。計算方式：電網用電 × 0.040 €/kWh。VPP 啟用時設為 0。'
+    : '§14a EnWG: grid fee reduction for controllable loads ≥4.4kW. Calculated as: grid electricity consumed × 0.040 €/kWh (BNetzA average). Set to 0 when VPP is active.';
+  const tipArb = LANG === 'zh'
+    ? '年度動態電價節省（基本家庭 3,000 kWh/yr + 熱泵電網用電 + 電動車）。費率由情境或手動設定。'
+    : 'Annual dynamic tariff savings on total household grid electricity (base household 3,000 kWh/yr + heat pump grid consumption + EV if enabled). Rate set by scenario or manually.';
+  const tipEV = LANG === 'zh'
+    ? '啟用電動車充電。增加約 3,500 kWh/yr 電網用電，可享動態電價節省。'
+    : 'Enable EV (electric vehicle) charging. Adds ~3,500 kWh/yr grid consumption eligible for dynamic tariff savings.';
+  const tipPV = LANG === 'zh'
+    ? '透過消耗 PV 電力（以 LCOE）替代電網購電所節省的年度金額。已反映在能源列中。此處僅供透明參考。'
+    : 'Annual € saved by consuming PV electricity at LCOE instead of buying from grid. Already reflected in the Energy bar (lower blended price). Shown here for transparency.';
+  return `<div style="font-size:.65rem;color:var(--muted);padding:4px 0 6px;border-bottom:1px solid var(--border);margin-bottom:8px">
+  ${T('vs_auto_note')}
+</div>
+<div class="param">
+  <div class="param-top">
+    <span class="lbl has-tip" title="${tip14a}">${T('vs_14a_label')}</span>
+    <span class="val" id="vs-14a-display" style="color:var(--ok)">…</span>
+  </div>
+  <div style="font-size:.63rem;color:var(--muted);margin-top:2px">${T('vs_14a_sub')}</div>
+</div>
+<div class="param">
+  <div class="param-top">
+    <span class="lbl has-tip" title="${tipArb}">${T('vs_arb_label')}</span>
+    <span class="val" id="arb-display" style="color:var(--ok)">…</span>
+  </div>
+  <div style="font-size:.63rem;color:var(--muted);margin-top:2px" id="arb-formula-label">Auto: (3000 + grid kWh) × rate</div>
+</div>
+<div class="toggle-row" style="margin-bottom:8px">
+  <span class="lbl has-tip" title="${tipEV}">${T('vs_ev_label')}</span>
+  <label class="toggle-switch"><input type="checkbox" id="ev-checkbox" ${HAS_EV?'checked':''} onchange="setEV(this.checked)"><span class="toggle-slider"></span></label>
+</div>
+<div class="param" style="margin-top:4px">
+  <div class="param-top">
+    <span class="lbl has-tip" title="${tipPV}">${T('vs_pv_label')}</span>
+    <span class="val" id="pv-saving-display" style="color:var(--ok)">…</span>
+  </div>
+  <div style="font-size:.63rem;color:var(--muted);margin-top:2px">${T('vs_pv_sub')}</div>
+</div>
+<hr style="border:none;border-top:1px solid var(--border);margin:8px 0">`;
+}
+
+function updateValueStackDisplay(res) {
+  const el14a = document.getElementById('vs-14a-display');
+  if (el14a) el14a.textContent = fmtC(res.vs_14a_auto) + '/yr' + (VPP_ENABLED ? (LANG === 'zh' ? ' (VPP 啟用 → 0)' : ' (VPP active → 0)') : '');
+
+  const elArb = document.getElementById('arb-display');
+  if (elArb) elArb.textContent = fmtC(res.arb_auto) + '/yr';
+
+  const elArb2 = document.getElementById('arb-formula-label');
+  if (elArb2) {
+    const evNote = HAS_EV ? ` + 3500 EV` : '';
+    elArb2.textContent = `Auto: (3000 + ${Math.round(res.grid_elec_ep)}${evNote} kWh) × ${(S.dynamic_tariff_rate*100).toFixed(1)} ct/kWh`;
+  }
+
+  const elPV = document.getElementById('pv-saving-display');
+  if (elPV) elPV.textContent = fmtC(res.pv_saving_ep_annual) + '/yr';
+}
+
+function setEV(val) { HAS_EV = val; updateAll(); }
+
+function setVPP(val) {
+  VPP_ENABLED = val;
+  const wrap = document.getElementById('vpp-slider-wrap');
+  if (wrap) wrap.style.display = val ? '' : 'none';
+  const note = document.getElementById('vpp-14a-note');
+  if (note) note.style.display = val ? '' : 'none';
+  updateAll();
+}
+
+// ── Light mode: collapsed detail row ───────────────────────────────────────
+function renderCollapsedRow(params, secId) {
+  const n = params.length;
+  const rows = params.map(p =>
+    `<div class="ldet-row"><span>${pLabel(p)}</span><span class="ldet-v">${displayVal(p)}</span></div>`
+  ).join('');
+  return `<button class="ldet-btn" id="ldet-btn-${secId}" data-count="${n}" onclick="toggleDetail('${secId}')">${Tf('light_fixed', n)}</button>
+<div class="ldet-body hidden" id="ldet-${secId}">${rows}</div>`;
+}
+
+function toggleDetail(secId) {
+  const body = document.getElementById('ldet-' + secId);
+  const btn  = document.getElementById('ldet-btn-' + secId);
+  if (!body || !btn) return;
+  const n = parseInt(btn.dataset.count);
+  body.classList.toggle('hidden');
+  const open = !body.classList.contains('hidden');
+  btn.textContent = open ? Tf('light_hide', n) : Tf('light_fixed', n);
+}
+
+// ── Sidebar render ─────────────────────────────────────────────────────────
+function renderPresets() {
+  const bar = document.getElementById('preset-bar');
+  const noPresetNote = activePreset === -1 ? `<span class="preset-note">${LANG === 'zh' ? '（未選建築類型，使用預設 18,000 kWh/a）' : '(no building type selected — using default 18,000 kWh/a)'}</span>` : '';
+  bar.innerHTML = PRESETS.map((p,i) =>
+    `<button class="preset-btn${activePreset === i ? ' active' : ''}" onclick="applyPreset(${i})">${p[LANG]||p.en}</button>`
+  ).join('') + `<button class="reset-btn" onclick="resetAll()" title="Reset">${T('reset_label')}</button>` + noPresetNote;
+}
+
+function buildingConfigHTML() {
+  const clsOpts = BUILDING_CLASSES.map((c,i) =>
+    `<option value="${i}" ${i===BC.cls?'selected':''}>${c[LANG]||c.en} — ${c.kwh_m2a} kWh/m²a</option>`
+  ).join('');
+  const htOpts = HEATING_TYPES.map((h,i) =>
+    `<option value="${i}">${h[LANG]||h.en} (SCOP ${h.scop})</option>`
+  ).join('');
+  const computed = computeHeatFromBC();
+  const tipArea = LANG === 'zh' ? '加熱居住面積（m²）' : 'Heated living area in m²';
+  const tipPersons = LANG === 'zh' ? 'DHW 需求計算人數' : 'Number of persons for DHW demand calculation';
+  return `
+    <div class="build-row">
+      <label>${T('bc_label')}</label>
+      <select class="build-sel" id="sel-bldg">${clsOpts}</select>
+    </div>
+    <div class="param">
+      <div class="param-top">
+        <span class="lbl has-tip" title="${tipArea}">${T('bc_area')}</span>
+        <span class="val" id="val-living_area" onclick="startEditBC(this,'area')" title="Click to edit">${BC.area} m²</span>
+      </div>
+      <input type="range" id="rng-living_area" min="50" max="300" step="10" value="${BC.area}">
+    </div>
+    <div class="param">
+      <div class="param-top">
+        <span class="lbl has-tip" title="${tipPersons}">${T('bc_persons')}</span>
+        <span class="val" id="val-persons" onclick="startEditBC(this,'persons')" title="Click to edit">${BC.persons}</span>
+      </div>
+      <input type="range" id="rng-persons" min="1" max="8" step="1" value="${BC.persons}">
+    </div>
+    <div class="computed-heat">
+      <span class="ch-lbl">${T('bc_computed')}</span>
+      <span class="ch-val" id="computed-heat">${computed.toLocaleString('de-DE')} kWh/a</span>
+    </div>
+    <div class="build-row" style="margin-top:8px">
+      <label>${T('ht_label')}</label>
+      <select class="build-sel" id="sel-heating">${htOpts}</select>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:8px 0">`;
+}
+
+function renderSidebar() {
+  const inner = document.getElementById('sidebar-inner');
+  inner.innerHTML = '';
+  SECTIONS.forEach(sec => {
+    const div = document.createElement('div');
+    div.className = 'section';
+    const bl = sec.color ? `border-left:3px solid ${sec.color};` : '';
+    const secLabel = T(sec.labelKey);
+    let bodyContent = '';
+    if (sec.buildingConfig) bodyContent = buildingConfigHTML();
+
+    if (sec.id === 'ep') {
+      bodyContent += `<div class="fin-toggle">
+        <button class="fin-btn${FIN_MODE==='buy'?' active':''}" data-mode="buy" onclick="setFinMode('buy')">${T('fin_buy')}</button>
+        <button class="fin-btn${FIN_MODE==='haas'?' active':''}" data-mode="haas" onclick="setFinMode('haas')">${T('fin_haas')}</button>
+      </div>`;
+    }
+
+    if (sec.isValueStack) {
+      bodyContent += getValstackCustomHTML();
+      const sliderParams = sec.params.filter(p => !p.isVppParam);
+      const visiblePs   = LIGHT_MODE ? sliderParams.filter(p => LIGHT_PARAMS.has(p.key)) : sliderParams;
+      const collapsedPs = LIGHT_MODE ? sliderParams.filter(p => !LIGHT_PARAMS.has(p.key)) : [];
+
+      bodyContent += visiblePs.map(p => {
+        const tip = pTip(p);
+        return `<div class="param">
+          <div class="param-top">
+            <span class="lbl${tip?' has-tip':''}"${tip?` title="${tip}"`:''}>${pLabel(p)}</span>
+            <span class="val" id="val-${p.key}" onclick="startEdit(this,'${p.key}')" title="Click to edit">${displayVal(p)}</span>
+          </div>
+          <input type="range" id="rng-${p.key}" min="${p.min}" max="${p.max}" step="${p.step}" value="${S[p.key]}">
+        </div>`;
+      }).join('');
+
+      if (collapsedPs.length > 0) bodyContent += renderCollapsedRow(collapsedPs, sec.id);
+
+      const vppParam = sec.params.find(p => p.isVppParam);
+      if (vppParam) {
+        const vppTip = pTip(vppParam);
+        const tipVPPToggle = LANG === 'zh'
+          ? '啟用 VPP（虛擬電廠）市場參與。啟用時：§14a 電網費用減免設為 0（法規互斥）。頻率調整/平衡市場收入。'
+          : 'Enable VPP (Virtual Power Plant) market participation. When active: §14a grid fee reduction is set to 0 (regulatory mutual exclusion). Revenue from frequency regulation / balancing markets.';
+        bodyContent += `<hr style="border:none;border-top:1px solid var(--border);margin:8px 0">
+        <div class="toggle-row" style="margin-bottom:6px">
+          <span class="lbl has-tip" title="${tipVPPToggle}">${T('vs_vpp_label')}</span>
+          <label class="toggle-switch"><input type="checkbox" id="vpp-checkbox" ${VPP_ENABLED?'checked':''} onchange="setVPP(this.checked)"><span class="toggle-slider"></span></label>
+        </div>
+        <div id="vpp-slider-wrap" style="display:${VPP_ENABLED?'':'none'}">
+          <div class="param">
+            <div class="param-top">
+              <span class="lbl${vppTip?' has-tip':''}"${vppTip?` title="${vppTip}"`:''}>${pLabel(vppParam)}</span>
+              <span class="val" id="val-${vppParam.key}" onclick="startEdit(this,'${vppParam.key}')" title="Click to edit">${displayVal(vppParam)}</span>
+            </div>
+            <input type="range" id="rng-${vppParam.key}" min="${vppParam.min}" max="${vppParam.max}" step="${vppParam.step}" value="${S[vppParam.key]}">
+          </div>
+        </div>
+        <div id="vpp-14a-note" class="vpp-note" style="display:${VPP_ENABLED?'':'none'}">${T('vs_vpp_note')}</div>`;
+      }
+    } else {
+      const visiblePs   = LIGHT_MODE ? sec.params.filter(p => LIGHT_PARAMS.has(p.key)) : sec.params;
+      const collapsedPs = LIGHT_MODE ? sec.params.filter(p => !LIGHT_PARAMS.has(p.key)) : [];
+
+      bodyContent += visiblePs.map(p => {
+        const tip = pTip(p);
+        return `<div class="param">
+          <div class="param-top">
+            <span class="lbl${tip?' has-tip':''}"${tip?` title="${tip}"`:''}>${pLabel(p)}</span>
+            <span class="val" id="val-${p.key}" onclick="startEdit(this,'${p.key}')" title="Click to edit">${displayVal(p)}</span>
+          </div>
+          <input type="range" id="rng-${p.key}" min="${p.min}" max="${p.max}" step="${p.step}" value="${S[p.key]}">
+        </div>`;
+      }).join('');
+
+      if (collapsedPs.length > 0) bodyContent += renderCollapsedRow(collapsedPs, sec.id);
+    }
+
+    div.innerHTML = `
+      <div class="sec-hdr ${sec.open?'':'closed'}" data-sec="${sec.id}" style="${bl}">
+        <span>${secLabel}</span><span class="chev">▾</span>
+      </div>
+      <div class="sec-body ${sec.open?'':'hidden'}" id="secbody-${sec.id}">${bodyContent}</div>`;
+    inner.appendChild(div);
+  });
+
+  inner.querySelectorAll('.sec-hdr').forEach(hdr => {
+    hdr.addEventListener('click', () => {
+      hdr.classList.toggle('closed');
+      document.getElementById('secbody-' + hdr.dataset.sec).classList.toggle('hidden');
+    });
+  });
+
+  SECTIONS.forEach(sec => sec.params.forEach(p => {
+    const rng = document.getElementById('rng-' + p.key);
+    if (!rng) return;
+    rng.addEventListener('input', function() {
+      S[p.key] = parseFloat(this.value);
+      document.getElementById('val-' + p.key).textContent = displayVal(p);
+      activeScenario = -1; renderScenarioBar();
+      activePreset = -1; renderPresets();
+      updateAll();
+    });
+  }));
+
+  const selBldg = document.getElementById('sel-bldg');
+  if (selBldg) selBldg.addEventListener('change', function() { BC.cls = parseInt(this.value); activePreset = -1; renderPresets(); syncBCToHeat(); });
+  const rngArea = document.getElementById('rng-living_area');
+  if (rngArea) rngArea.addEventListener('input', function() { BC.area = parseInt(this.value); document.getElementById('val-living_area').textContent = BC.area + ' m²'; activePreset = -1; renderPresets(); syncBCToHeat(); });
+  const rngPersons = document.getElementById('rng-persons');
+  if (rngPersons) rngPersons.addEventListener('input', function() { BC.persons = parseInt(this.value); document.getElementById('val-persons').textContent = BC.persons; activePreset = -1; renderPresets(); syncBCToHeat(); });
+  const selHeat = document.getElementById('sel-heating');
+  if (selHeat) selHeat.addEventListener('change', function() {
+    const scop = HEATING_TYPES[parseInt(this.value)].scop;
+    S.scop_ep = scop; S.scop_hp = scop;
+    const rep = document.getElementById('rng-scop_ep'); const rhp = document.getElementById('rng-scop_hp');
+    if (rep) { rep.value = scop; document.getElementById('val-scop_ep').textContent = displayVal(PARAM_MAP['scop_ep']); }
+    if (rhp) { rhp.value = scop; document.getElementById('val-scop_hp').textContent = displayVal(PARAM_MAP['scop_hp']); }
+    updateAll();
+  });
+}
+
+function syncBCToHeat() {
+  const heat = computeHeatFromBC();
+  S.total_heat = heat;
+  const rng = document.getElementById('rng-total_heat'); if (rng) rng.value = heat;
+  const val = document.getElementById('val-total_heat'); if (val) val.textContent = displayVal(PARAM_MAP['total_heat']);
+  const ch = document.getElementById('computed-heat');   if (ch) ch.textContent = heat.toLocaleString('de-DE') + ' kWh/a';
+  updateAll();
+}
+
+function startEditBC(el, field) {
+  const cfg = { area:{ min:50, max:300, step:10, suffix:' m²' }, persons:{ min:1, max:8, step:1, suffix:'' } }[field];
+  if (!cfg) return;
+  const cur = BC[field];
+  const inp = document.createElement('input');
+  inp.type = 'number'; inp.value = cur; inp.step = cfg.step; inp.min = cfg.min; inp.max = cfg.max;
+  inp.style.cssText = 'width:60px;font-size:.73rem;font-weight:700;border:1px solid var(--accent);border-radius:3px;padding:1px 4px;outline:none;background:var(--surface2);color:var(--text)';
+  const commit = () => {
+    let v = parseInt(inp.value); if (isNaN(v)) v = cur;
+    v = Math.max(cfg.min, Math.min(cfg.max, v));
+    BC[field] = v; el.textContent = v + cfg.suffix; el.style.display = ''; inp.remove();
+    const rng = document.getElementById('rng-' + (field==='area'?'living_area':'persons'));
+    if (rng) rng.value = v; syncBCToHeat();
+  };
+  inp.addEventListener('keydown', e => { if (e.key==='Enter') commit(); if (e.key==='Escape') { el.style.display=''; inp.remove(); } });
+  inp.addEventListener('blur', commit);
+  el.style.display = 'none'; el.parentNode.insertBefore(inp, el.nextSibling); inp.focus(); inp.select();
+}
+
+// ── Chart ──────────────────────────────────────────────────────────────────
+let chart = null;
+
+function renderChart(res) {
+  const sc = viewScale(S);
+  const labels = [T('bar_ep'), T('bar_hp'), T('bar_gas')];
+  const barBorderCol = THEME === 'light' ? '#FFFFFF' : '#111927';
+  const gridZero = THEME === 'light' ? '#94A3B8' : '#475569';
+  const gridLine = THEME === 'light' ? '#E2E8F0' : '#1E293B';
+  const BAR_BORDER = { borderColor:barBorderCol, borderWidth:2, borderSkipped:false };
+  const cDs     = { label:T('chart_capex'),  data:[res.ep.c*sc,      res.hp.c*sc,      res.gas.c*sc     ], backgroundColor:'#F97316', borderRadius:0, ...BAR_BORDER };
+  const oDs     = { label:T('chart_opex'),   data:[res.ep.o*sc,      res.hp.o*sc,      res.gas.o*sc     ], backgroundColor:'#3B82F6', borderRadius:0, ...BAR_BORDER };
+  const eDs     = { label:T('chart_energy'), data:[res.ep.e*sc,      res.hp.e*sc,      res.gas.e*sc     ], backgroundColor:'#30C96F', borderRadius:0, ...BAR_BORDER };
+  const carbonDs= { label:T('chart_carbon'), data:[res.ep.carbon*sc, res.hp.carbon*sc, res.gas.carbon*sc], backgroundColor:'#EF4444', borderRadius:{ topLeft:3, topRight:3, bottomLeft:0, bottomRight:0 }, ...BAR_BORDER };
+  const rev_sc  = res.ep.revenue * sc;
+  const revDs   = { label:T('chart_revenue'),
+                    data:[ rev_sc > 0 ? -rev_sc : 0, 0, 0 ],
+                    backgroundColor:'rgba(34,197,94,0.80)',
+                    borderColor:barBorderCol, borderWidth:2, borderSkipped:false,
+                    borderRadius:{ topLeft:0, topRight:0, bottomLeft:3, bottomRight:3 } };
+
+  if (chart) {
+    chart.data.labels = labels;
+    chart.data.datasets[0].label = cDs.label; chart.data.datasets[0].data = cDs.data;
+    chart.data.datasets[1].label = oDs.label; chart.data.datasets[1].data = oDs.data;
+    chart.data.datasets[2].label = eDs.label; chart.data.datasets[2].data = eDs.data;
+    chart.data.datasets[3].label = carbonDs.label; chart.data.datasets[3].data = carbonDs.data;
+    chart.data.datasets[4].label = revDs.label; chart.data.datasets[4].data = revDs.data;
+    chart.options.scales.y.title.text = viewYLabel();
+    chart.options.scales.y.ticks.callback = viewTickFmt;
+    chart.options.plugins.tooltip.callbacks.label = ctx => {
+      if (ctx.parsed.y === 0) return null;
+      const sign = ctx.parsed.y < 0 ? '−' : '';
+      return ` ${ctx.dataset.label}: ${sign}${viewTooltipFmt(Math.abs(ctx.parsed.y))}`;
+    };
+    chart.options.plugins.tooltip.callbacks.footer = items => {
+      const tot = items.reduce((a,i) => a+i.parsed.y, 0);
+      return `${T('net')}: ${viewTooltipFmt(tot)}`;
+    };
+    chart.update('none');
+    return;
+  }
+
+  chart = new Chart(document.getElementById('lcohChart'), {
+    type:'bar',
+    data:{ labels, datasets:[cDs,oDs,eDs,carbonDs,revDs] },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      categoryPercentage:0.5, barPercentage:0.85,
+      plugins:{
+        legend:{
+          display:true, position:'bottom',
+          labels:{ font:{size:11}, boxWidth:12, usePointStyle:true, pointStyle:'rect', padding:12, color:'#8494A7',
+            generateLabels: ch => {
+              const defs = Chart.defaults.plugins.legend.labels.generateLabels(ch);
+              defs.forEach(d => { if (d.datasetIndex === 4) d.text += T('chart_revenue_suffix'); });
+              return defs;
+            }
+          }
+        },
+        tooltip:{
+          callbacks:{
+            label: ctx => {
+              if (ctx.parsed.y === 0) return null;
+              const sign = ctx.parsed.y < 0 ? '−' : '';
+              return ` ${ctx.dataset.label}: ${sign}${viewTooltipFmt(Math.abs(ctx.parsed.y))}`;
+            },
+            footer: items => {
+              const t = items.reduce((a,i) => a+i.parsed.y, 0);
+              return `${T('net_lcoh')}: ${viewTooltipFmt(t)}`;
+            }
+          }
+        }
+      },
+      scales:{
+        x:{ stacked:true, grid:{display:false}, ticks:{ font:{weight:'700',size:11}, color:['#30C96F','#F5A623','#EF6B4A'] } },
+        y:{ stacked:true,
+            title:{ display:true, text:viewYLabel(), font:{size:11}, color: THEME==='light'?'#64748B':'#8494A7' },
+            grid:{ color: ctx => ctx.tick.value === 0 ? gridZero : gridLine, lineWidth: ctx => ctx.tick.value === 0 ? 2 : 1 },
+            ticks:{ callback: viewTickFmt, color: THEME==='light'?'#64748B':'#8494A7' }
+        }
+      }
+    }
+  });
+}
+
+// ── Cumulative chart ────────────────────────────────────────────────────────
+let cumChart = null;
+let CUM_MODE = 'savings';
+
+function renderCumChart(res) {
+  const lt = S.lifetime, heat = S.total_heat;
+  const ep_capex_net  = (FIN_MODE === 'haas') ? 0 : (res.ep.capex + res.ep.pv - res.ep.sub);
+  const hp_capex_net  = res.hp.capex + res.hp.pv - res.hp.sub;
+  const gas_capex_net = res.gas.capex;
+
+  const annual_ep  = (res.ep.o + res.ep.e + res.ep.carbon) * heat - res.ep.revenue * heat + (FIN_MODE === 'haas' ? res.ep.c * heat : 0);
+  const annual_hp  = (res.hp.o + res.hp.e + res.hp.carbon) * heat;
+  const annual_gas = (res.gas.o + res.gas.e + res.gas.carbon) * heat;
+
+  const years = [], ep_cum = [], hp_cum = [], gas_cum = [];
+  for (let t = 0; t <= lt; t++) {
+    years.push(t === 0 ? T('today') : Tf('yr', t));
+    if (t === 0) { ep_cum.push(ep_capex_net); hp_cum.push(hp_capex_net); gas_cum.push(gas_capex_net); }
+    else { ep_cum.push(ep_cum[t-1]+annual_ep); hp_cum.push(hp_cum[t-1]+annual_hp); gas_cum.push(gas_cum[t-1]+annual_gas); }
+  }
+
+  const ep_sav = ep_cum.map((v, t) => gas_cum[t] - v);
+  const hp_sav = hp_cum.map((v, t) => gas_cum[t] - v);
+
+  function findBreakeven(arr) { for (let t = 1; t <= lt; t++) { if (arr[t] >= 0) return t; } return null; }
+  const bep_ep = findBreakeven(ep_sav), bep_hp = findBreakeven(hp_sav);
+
+  const chips = document.getElementById('payback-chips');
+  if (chips) {
+    const chipEP = bep_ep
+      ? `<span class="pb-chip ep">${Tf('pb_ep_ok', bep_ep, fmtC(ep_sav[lt]), lt)}</span>`
+      : `<span class="pb-chip none">${Tf('pb_ep_none', lt)}</span>`;
+    const chipHP = bep_hp
+      ? `<span class="pb-chip hp">${Tf('pb_hp_ok', bep_hp, fmtC(hp_sav[lt]), lt)}</span>`
+      : `<span class="pb-chip none">${Tf('pb_hp_none', lt)}</span>`;
+    chips.innerHTML = chipEP + chipHP;
+  }
+
+  let datasets, yTitle;
+  if (CUM_MODE === 'savings') {
+    datasets = [
+      { label:T('cum_ep_sav'), data:ep_sav, borderColor:'#30C96F', borderWidth:2.5, fill:{target:{value:0},above:'rgba(48,201,111,0.15)',below:'rgba(239,68,68,0.10)'}, tension:0.3, pointRadius:2, pointHoverRadius:4 },
+      { label:T('cum_hp_sav'), data:hp_sav, borderColor:'#F5A623', borderWidth:2.5, fill:{target:{value:0},above:'rgba(245,166,35,0.12)',below:'rgba(239,68,68,0.06)'}, tension:0.3, pointRadius:2, pointHoverRadius:4 },
+      { label:T('cum_gas_base'), data:new Array(lt+1).fill(0), borderColor:'#EF6B4A', borderWidth:1.5, borderDash:[5,4], backgroundColor:'transparent', pointRadius:0, tension:0 },
+    ];
+    yTitle = T('cum_y_savings');
+  } else {
+    datasets = [
+      { label:T('bar_ep'), data:ep_cum, borderColor:'#30C96F', borderWidth:2.5, backgroundColor:'transparent', tension:0.3, pointRadius:2 },
+      { label:T('bar_hp'), data:hp_cum, borderColor:'#F5A623', borderWidth:2.5, backgroundColor:'transparent', tension:0.3, pointRadius:2 },
+      { label:T('bar_gas'), data:gas_cum, borderColor:'#EF6B4A', borderWidth:2, backgroundColor:'transparent', tension:0.3, pointRadius:2 },
+    ];
+    yTitle = T('cum_y_absolute');
+  }
+
+  if (cumChart) { cumChart.data.labels = years; cumChart.data.datasets = datasets; cumChart.options.scales.y.title.text = yTitle; cumChart.update('none'); return; }
+
+  cumChart = new Chart(document.getElementById('cumChart'), {
+    type:'line', data:{ labels:years, datasets },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ display:true, labels:{ font:{size:11}, boxWidth:10, usePointStyle:true, color:'#8494A7' },
+          onClick: (e, li, leg) => { if (li.text.includes('Gas') || li.text.includes('燃氣')) return; Chart.defaults.plugins.legend.onClick(e, li, leg); } },
+        tooltip:{ callbacks:{ label: ctx => { const s = CUM_MODE === 'savings' && ctx.parsed.y > 0 ? '+' : ''; return ` ${ctx.dataset.label}: ${s}${fmtC(ctx.parsed.y)}`; } } }
+      },
+      scales:{
+        x:{ grid:{display:false}, ticks:{ font:{size:10}, maxTicksLimit:12, color: THEME==='light'?'#64748B':'#8494A7' } },
+        y:{ title:{ display:true, text:yTitle, font:{size:11}, color: THEME==='light'?'#64748B':'#8494A7' },
+            grid:{ color: ctx => ctx.tick.value === 0 ? (THEME==='light'?'#94A3B8':'#475569') : (THEME==='light'?'#E2E8F0':'#1E293B'), lineWidth: ctx => ctx.tick.value === 0 ? 2 : 1 },
+            ticks:{ callback: v => { const a = Math.abs(v/1000).toFixed(0) + 'k'; return v < 0 ? '−' + a : a; }, color: THEME==='light'?'#64748B':'#8494A7' } }
+      }
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.cum-vt-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.cum-vt-btn').forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+      CUM_MODE = this.dataset.cmode;
+      if (cumChart) { cumChart.destroy(); cumChart = null; }
+      updateAll();
+    });
+  });
+});
+
+// ── Tech cards ─────────────────────────────────────────────────────────────
+const TC_NAMES = { ep:'tc_ep', hp:'tc_hp', gas:'tc_gas' };
+const TC_SUBS  = {
+  en:{ ep:'Low operating costs\nthanks to high efficiency.', hp:'All-round supply at\nstable prices.', gas:'Low purchase cost,\nhigher running costs.' },
+  de:{ ep:'Niedrige Betriebskosten\ndank hoher Effizienz.', hp:'Rundum-Versorgung bei\nstabilen Preisen.', gas:'Günstige Anschaffung,\nhöhere laufende Kosten.' },
+  zh:{ ep:'高效率帶來\n低營運成本。', hp:'穩定價格的\n全方位供應。', gas:'購買成本低，\n運行成本較高。' }
+};
+
+// ── Flip card interaction ───────────────────────────────────────────────────
+function flipCard(el) {
+  el.classList.toggle('flipped');
+}
+
+function renderHeroCards(res) {
+  const lt = S.lifetime;
+  const techs = [
+    { cls:'ep',  id:'card-ep',  r:res.ep,  name:T('bar_ep'),  color:'var(--ep)' },
+    { cls:'hp',  id:'card-hp',  r:res.hp,  name:T('bar_hp'),  color:'var(--hp)' },
+    { cls:'gas', id:'card-gas', r:res.gas, name:T('bar_gas'), color:'var(--gas)' },
+  ];
+
+  // Find winner (lowest total LCOH)
+  const sorted = [...techs].sort((a,b) => a.r.t - b.r.t);
+  const winnerCls = sorted[0].cls;
+  const winnerName = sorted[0].name;
+  const winnerMonthly = sorted[0].r.t * S.total_heat / 12;
+
+  const fmtLcoh = v => (v * 100).toFixed(2);
+  const fmtMo   = v => Math.round(v);
+  const fmtE    = v => Math.round(v).toLocaleString('de-DE');
+  const dr      = (lbl, val) => `<div class="tc-detail-row"><span class="td-lbl">${lbl}</span><span class="td-val">${val}</span></div>`;
+  const drT     = (lbl, val, cls) => `<div class="tc-detail-row td-total"><span class="td-lbl">${lbl}</span><span class="td-val" style="color:var(--${cls})">${val}</span></div>`;
+
+  techs.forEach(tech => {
+    const el = document.getElementById(tech.id);
+    const front = document.getElementById('front-' + tech.cls);
+    const back  = document.getElementById('back-' + tech.cls);
+    const lcoh = tech.r.t;
+    const monthly = lcoh * S.total_heat / 12;
+    const totalLifetime = lcoh * S.total_heat * lt;
+    const isWinner = tech.cls === winnerCls;
+    const sub = (TC_SUBS[LANG] || TC_SUBS.en)[tech.cls];
+
+    // Winner / comparison badge
+    let badgeHTML = '';
+    if (isWinner) {
+      el.classList.add('winner');
+      badgeHTML = `<span class="tc-badge winner-badge">🏆 ${LANG === 'zh' ? '最低價' : 'Best Price'}</span>`;
+    } else {
+      el.classList.remove('winner');
+      const diffMo = monthly - winnerMonthly;
+      const diffLabel = LANG === 'zh'
+        ? `${fmtMo(Math.abs(diffMo))} €/月 ${diffMo > 0 ? '多於' : '少於'} ${winnerName}`
+        : `${fmtMo(Math.abs(diffMo))} €/month ${diffMo > 0 ? 'more than' : 'less than'} ${winnerName}`;
+      badgeHTML = `<span class="tc-badge compare-badge">${diffMo > 0 ? '↑' : '↓'} ${diffLabel}</span>`;
+    }
+
+    // Key params differ by tech (front side)
+    let paramsHTML = '';
+    if (tech.cls === 'ep') {
+      const capex = FIN_MODE === 'haas' ? T('tc_haas_note') : fmtC(tech.r.capex);
+      paramsHTML = `
+        <div class="tc-param-row"><span class="tc-plbl"><span class="tc-icon">🏠</span>${LANG==='zh'?'購置成本':'Purchase Cost'}</span><span class="tc-pval accent">${capex}</span></div>
+        <div class="tc-param-row"><span class="tc-plbl"><span class="tc-icon">⚡</span>${LANG==='zh'?'能源價格':'Energy Price'}</span><span class="tc-pval">${(S.electricity_price_ep*100).toFixed(1)} ct/kWh</span></div>
+        <div class="tc-param-row"><span class="tc-plbl"><span class="tc-icon">📋</span>${LANG==='zh'?'條件':'Conditions'}</span><span class="tc-pval">SCOP ${S.scop_ep.toFixed(1)}</span></div>`;
+    } else if (tech.cls === 'hp') {
+      paramsHTML = `
+        <div class="tc-param-row"><span class="tc-plbl"><span class="tc-icon">🏠</span>${LANG==='zh'?'購置成本':'Purchase Cost'}</span><span class="tc-pval accent">${fmtC(tech.r.capex)}</span></div>
+        <div class="tc-param-row"><span class="tc-plbl"><span class="tc-icon">⚡</span>${LANG==='zh'?'能源價格':'Energy Price'}</span><span class="tc-pval">${(S.electricity_price_hp*100).toFixed(1)} ct/kWh</span></div>
+        <div class="tc-param-row"><span class="tc-plbl"><span class="tc-icon">📋</span>${LANG==='zh'?'條件':'Conditions'}</span><span class="tc-pval">SCOP ${S.scop_hp.toFixed(1)}</span></div>`;
+    } else {
+      paramsHTML = `
+        <div class="tc-param-row"><span class="tc-plbl"><span class="tc-icon">🏠</span>${LANG==='zh'?'購置成本':'Purchase Cost'}</span><span class="tc-pval accent">${fmtC(tech.r.capex)}</span></div>
+        <div class="tc-param-row"><span class="tc-plbl"><span class="tc-icon">🔥</span>${LANG==='zh'?'燃料價格':'Fuel Price'}</span><span class="tc-pval">${(S.gas_price_avg*100).toFixed(1)} ct/kWh</span></div>
+        <div class="tc-param-row"><span class="tc-plbl"><span class="tc-icon">📋</span>${LANG==='zh'?'效率':'Efficiency'}</span><span class="tc-pval">${(S.boiler_efficiency*100).toFixed(0)} %</span></div>`;
+    }
+
+    // === FRONT SIDE ===
+    front.innerHTML = `
+      <div class="tc-header">
+        <div class="tc-header-text">
+          <h3>${tech.name}</h3>
+          <div class="tc-subtitle">${sub.replace(/\n/g, '<br>')}</div>
+        </div>
+        <div class="tc-image-placeholder">📷</div>
+      </div>
+      
+      <div class="tc-hero">
+        <div style="width:100%">
+          <div class="tc-headline">${LANG==='zh'?'總成本':'Total Cost'} (${lt} ${LANG==='zh'?'年':'years'})</div>
+          <div style="display:flex;align-items:baseline;gap:6px;margin-top:4px">
+            <span class="tc-cost-big" id="anim-lcoh-${tech.cls}">${fmtLcoh(lcoh)}</span>
+            <span class="tc-cost-unit">ct/kWh</span>
+          </div>
+          <div class="tc-monthly" id="anim-mo-${tech.cls}">${fmtMo(monthly)} €/${LANG==='zh'?'月':'month'}</div>
+        </div>
+        <div style="margin-top:6px">${badgeHTML}</div>
+      </div>
+      <div class="tc-sparkline" id="spark-${tech.cls}">
+        <canvas width="200" height="32"></canvas>
+        <span class="tc-sparkline-label">vs Gas</span>
+      </div>
+      <div class="tc-divider"></div>
+      <div class="tc-params">${paramsHTML}</div>
+      <div class="tc-flip-hint">${LANG==='zh'?'點擊查看詳情 →':'Click for details →'}</div>`;
+
+    // Animate the headline numbers
+    const lcohEl = document.getElementById('anim-lcoh-' + tech.cls);
+    const moEl = document.getElementById('anim-mo-' + tech.cls);
+    animateValue(lcohEl, lcoh * 100, v => v.toFixed(2));
+    animateValue(moEl, monthly, v => `${Math.round(v)} €/${LANG==='zh'?'月':'month'}`);
+
+    // === BACK SIDE — detailed cost breakdown ===
+    let backHTML = '';
+    const capexAnn = tech.r.c * S.total_heat;
+    const opexAnn  = tech.r.o * S.total_heat;
+    const energyAnn = tech.r.e * S.total_heat;
+    const carbonAnn = tech.r.carbon * S.total_heat;
+    const revenueAnn = (tech.r.revenue || 0) * S.total_heat;
+    const totalAnn = tech.r.t * S.total_heat;
+
+    // CAPEX details by tech
+    let capexRows = '';
+    if (tech.cls === 'ep') {
+      if (FIN_MODE === 'haas') {
+        capexRows = dr('HaaS Monthly Fee', fmtC(S.haas_monthly_fee) + '/mo');
+      } else {
+        capexRows =
+          dr('EP Unit', fmtC(S.ep_box)) +
+          dr('Radiator Piping', fmtC(S.ep_radiator_piping)) +
+          dr('Heating Calculation', fmtC(S.ep_heating_calc)) +
+          dr('Logistics', fmtC(S.ep_logistics)) +
+          dr('Crane', fmtC(S.ep_crane)) +
+          dr('Foundation', fmtC(S.ep_foundation)) +
+          dr('Core Drilling', fmtC(S.ep_core_drilling)) +
+          dr('Piping', fmtC(S.ep_piping)) +
+          (tech.r.sub > 0 ? `<div class="tc-detail-row"><span class="td-lbl td-sub">− Subsidy (${(S.subsidy_rate*100).toFixed(0)}%)</span><span class="td-val td-sub">−${fmtC(tech.r.sub)}</span></div>` : '');
+      }
+    } else if (tech.cls === 'hp') {
+      capexRows =
+        dr('HP Unit', fmtC(S.hp_unit)) +
+        dr('Radiator Piping', fmtC(S.hp_radiator_piping)) +
+        dr('Heating Calculation', fmtC(S.hp_heating_calc)) +
+        dr('DHW Buffer', fmtC(S.hp_dhw_buffer)) +
+        dr('Logistics', fmtC(S.hp_logistics)) +
+        dr('Foundation', fmtC(S.hp_foundation)) +
+        dr('Core Drilling', fmtC(S.hp_core_drilling)) +
+        dr('Piping & Electrical', fmtC(S.hp_piping_electrical)) +
+        (tech.r.sub > 0 ? `<div class="tc-detail-row"><span class="td-lbl td-sub">− Subsidy (${(S.subsidy_rate*100).toFixed(0)}%)</span><span class="td-val td-sub">−${fmtC(tech.r.sub)}</span></div>` : '');
+    } else {
+      capexRows =
+        dr('Boiler Unit', fmtC(S.gas_boiler_unit)) +
+        dr('Decommissioning', fmtC(S.gas_decommissioning)) +
+        dr('Heating Calculation', fmtC(S.gas_heating_calc)) +
+        dr('Logistics', fmtC(S.gas_logistics)) +
+        dr('Installation', fmtC(S.gas_installation));
+    }
+
+    // OPEX details by tech
+    let opexRows = '';
+    if (tech.cls === 'ep') {
+      opexRows =
+        dr('Service', fmtC(S.ep_service) + '/yr') +
+        dr('Warranty', fmtC(S.ep_warranty) + '/yr') +
+        dr('Metering', fmtC(S.ep_metering) + '/yr') +
+        dr('Spare Parts', fmtC(S.ep_spare_parts) + '/yr');
+    } else if (tech.cls === 'hp') {
+      opexRows =
+        dr('Service', fmtC(S.hp_service) + '/yr') +
+        dr('Warranty', fmtC(S.hp_warranty) + '/yr') +
+        dr('Metering', fmtC(S.hp_metering) + '/yr') +
+        dr('Spare Parts', fmtC(S.hp_spare_parts) + '/yr');
+    } else {
+      opexRows =
+        dr('Service', fmtC(S.gas_service) + '/yr') +
+        dr('Warranty', fmtC(S.gas_warranty) + '/yr') +
+        dr('Metering', fmtC(S.gas_metering) + '/yr') +
+        dr('Chimney Sweep', fmtC(S.gas_chimney_sweep) + '/yr');
+    }
+
+    // Energy details
+    let energyRows = '';
+    if (tech.cls === 'ep') {
+      energyRows =
+        dr('Electricity (blended)', (res.blend_ep * 100).toFixed(1) + ' ct/kWh') +
+        dr('Consumption', fmtE(res.elec_ep) + ' kWh/yr') +
+        dr('Base Price', fmtC(S.ep_electricity_base) + '/yr');
+    } else if (tech.cls === 'hp') {
+      energyRows =
+        dr('Electricity (blended)', (res.blend_hp * 100).toFixed(1) + ' ct/kWh') +
+        dr('Consumption', fmtE(res.elec_hp) + ' kWh/yr') +
+        dr('Base Price', fmtC(S.hp_electricity_base) + '/yr');
+    } else {
+      energyRows =
+        dr('Gas Price', (S.gas_price_avg * 100).toFixed(1) + ' ct/kWh') +
+        dr('Consumption', fmtE(res.gas_cons) + ' kWh/yr') +
+        dr('Base Price', fmtC(S.gas_base_price) + '/yr');
+    }
+
+    // Value stacking (EP only)
+    let vsSection = '';
+    if (tech.cls === 'ep' && revenueAnn > 0) {
+      vsSection = `
+        <div class="tc-back-section">
+          <div class="tc-back-section-title">💎 ${LANG==='zh'?'價值疊加':'Value Stacking'} (−${fmtC(revenueAnn)}/yr)</div>
+          ${dr('§14a EnWG', fmtC(res.vs_14a_eff) + '/yr')}
+          ${dr('§22 EnFG', fmtC(S.vs_22enfg) + '/yr')}
+          ${dr('Dynamic Tariff', fmtC(res.arb_auto) + '/yr')}
+          ${VPP_ENABLED ? dr('VPP Balancing', fmtC(S.vs_balancing) + '/yr') : ''}
+        </div>`;
+    }
+
+    back.innerHTML = `
+      <div class="tc-back-hdr">
+        <h3 style="color:var(--${tech.cls})">${tech.name}</h3>
+        <span class="tc-back-close">${LANG==='zh'?'← 返回':'← Back'}</span>
+      </div>
+      <div class="tc-back-section">
+        <div class="tc-back-section-title">🏗 ${LANG==='zh'?'資本支出':'CAPEX'} (${fmtC(capexAnn)}/yr)</div>
+        ${capexRows}
+      </div>
+      <div class="tc-back-section">
+        <div class="tc-back-section-title">🔧 ${LANG==='zh'?'營運費用':'OPEX'} (${fmtC(opexAnn)}/yr)</div>
+        ${opexRows}
+      </div>
+      <div class="tc-back-section">
+        <div class="tc-back-section-title">⚡ ${LANG==='zh'?'能源':'Energy'} (${fmtC(energyAnn)}/yr)</div>
+        ${energyRows}
+      </div>
+      ${carbonAnn > 0 ? `<div class="tc-back-section">
+        <div class="tc-back-section-title">🌍 ${LANG==='zh'?'碳成本':'Carbon Cost'} (${fmtC(carbonAnn)}/yr)</div>
+        ${dr('CO₂ Emissions', fmtE(tech.r.co2) + ' kg/yr')}
+        ${dr('Carbon Price', S.carbon_price + ' €/tCO₂')}
+      </div>` : ''}
+      ${vsSection}
+      <div style="padding:0 16px 14px">
+        ${drT(LANG==='zh'?'年度總計':'Annual Total', fmtC(totalAnn) + '/yr', tech.cls)}
+        ${drT(LANG==='zh'?'終身總計':'Lifetime Total (' + lt + 'yr)', fmtC(totalAnn * lt), tech.cls)}
+      </div>`;
+  });
+  renderSparklines(res);
+}
+
+// ── Savings panel ──────────────────────────────────────────────────────────
+function renderSavings(res) {
+  const panel = document.getElementById('savings-panel');
+  const annEP = (res.gas.t - res.ep.t) * S.total_heat;
+  const annHP = (res.gas.t - res.hp.t) * S.total_heat;
+  const lifEP = annEP * S.lifetime, lifHP = annHP * S.lifetime;
+  const pctEP = ((res.gas.t - res.ep.t) / res.gas.t * 100).toFixed(1);
+  const pctHP = ((res.gas.t - res.hp.t) / res.gas.t * 100).toFixed(1);
+
+  const card = (tech, color, ann, lif, pct) => {
+    const neg = ann < 0, cls = neg ? 'sav-neg' : '';
+    return `<div class="sav-card">
+      <h4>${T('sav_vs_gas')} — <span style="color:${color}">${tech}</span></h4>
+      <div class="sav-big ${cls}">${ann>=0?'':'-'}${fmtC(Math.abs(ann))}</div>
+      <div class="sav-sub">${ann<0?T('sav_more_expensive'):T('sav_per_year')}</div>
+      <div class="sav-grid">
+        <div class="sav-item"><div class="sk">${Tf('sav_over', S.lifetime)}</div><div class="sv ${cls}">${lif>=0?'':'-'}${fmtC(Math.abs(lif))}</div></div>
+        <div class="sav-item"><div class="sk">${T('sav_cost_reduction')}</div><div class="sv ${cls}">${pct}%</div></div>
+      </div>
+    </div>`;
+  };
+  panel.innerHTML = card(T('bar_ep'),'var(--ep)',annEP,lifEP,pctEP) + card(T('bar_hp'),'var(--hp)',annHP,lifHP,pctHP);
+}
+
+// ── CO₂ panel ──────────────────────────────────────────────────────────────
+function renderCO2(res) {
+  const panel = document.getElementById('co2-panel');
+  const lifEP = res.ep.co2*S.lifetime, lifHP = res.hp.co2*S.lifetime, lifGas = res.gas.co2*S.lifetime;
+  const savEP = ((res.gas.co2-res.ep.co2)/res.gas.co2*100).toFixed(0);
+  const savHP = ((res.gas.co2-res.hp.co2)/res.gas.co2*100).toFixed(0);
+
+  panel.innerHTML = `
+    <div class="card-title" style="margin-bottom:10px">${T('co2_title')}</div>
+    <div class="co2-grid">
+      <div class="co2-col ep">
+        <h5>${T('bar_ep')}</h5>
+        <div class="co2-big">${fmtKg(res.ep.co2)}</div><div class="co2-sub">${T('co2_per_year')}</div>
+        <div class="co2-sub">${Tf('co2_over', fmtKg(lifEP), S.lifetime)}</div>
+        <div class="co2-badge">${Tf('co2_vs_gas', savEP)}</div>
+      </div>
+      <div class="co2-col hp">
+        <h5>${T('bar_hp')}</h5>
+        <div class="co2-big">${fmtKg(res.hp.co2)}</div><div class="co2-sub">${T('co2_per_year')}</div>
+        <div class="co2-sub">${Tf('co2_over', fmtKg(lifHP), S.lifetime)}</div>
+        <div class="co2-badge">${Tf('co2_vs_gas', savHP)}</div>
+      </div>
+      <div class="co2-col gas">
+        <h5>${T('bar_gas')}</h5>
+        <div class="co2-big">${fmtKg(res.gas.co2)}</div><div class="co2-sub">${T('co2_per_year')}</div>
+        <div class="co2-sub">${Tf('co2_over', fmtKg(lifGas), S.lifetime)}</div>
+        <div class="co2-badge bad">${T('co2_baseline')}</div>
+      </div>
+    </div>
+    <div class="co2-note">${T('co2_note_prefix')}: ${S.co2_electricity.toFixed(3)} kg CO₂/kWh &nbsp;·&nbsp; ${T('co2_note_gas')}: ${S.co2_gas.toFixed(3)} kg CO₂/kWh &nbsp;·&nbsp; ${T('co2_note_pv')} &nbsp;·&nbsp; ${T('co2_note_carbon')}: ${S.carbon_price} €/tCO₂</div>`;
+}
+
+function updateVppNote() {}
+
+// ── Derived values ─────────────────────────────────────────────────────────
+function updateDerived(res) {
+  document.getElementById('dv-lcoe-ep').textContent  = res.lcoe_ep.toFixed(4) + ' €/kWh';
+  document.getElementById('dv-lcoe-hp').textContent  = res.lcoe_hp.toFixed(4) + ' €/kWh';
+  document.getElementById('dv-blend-ep').textContent = res.blend_ep.toFixed(4) + ' €/kWh';
+  document.getElementById('dv-blend-hp').textContent = res.blend_hp.toFixed(4) + ' €/kWh';
+  document.getElementById('dv-elec-ep').textContent  = Math.round(res.elec_ep).toLocaleString('de-DE') + ' kWh/a';
+  document.getElementById('dv-elec-hp').textContent  = Math.round(res.elec_hp).toLocaleString('de-DE') + ' kWh/a';
+  document.getElementById('dv-gas-cons').textContent = Math.round(res.gas_cons).toLocaleString('de-DE') + ' kWh/a';
+  document.getElementById('dv-sub-ep').textContent   = fmtC(res.ep.sub);
+  document.getElementById('dv-sub-hp').textContent   = fmtC(res.hp.sub);
+  document.getElementById('dv-capex-ep').textContent = fmtC(res.ep.capex + res.ep.pv);
+  document.getElementById('dv-capex-hp').textContent = fmtC(res.hp.capex + res.hp.pv);
+  document.getElementById('dv-capex-gas').textContent= fmtC(res.gas.capex);
+}
+
+// ── Verification ───────────────────────────────────────────────────────────
+function renderVerify(res) {
+  const EXP = EXPECTED, tol = 0.0002;
+  const rows = [
+    ['LCOH Total (€/kWh)',  res.ep.t_base,  EXP.ep.lcoh_total,  res.hp.t_base,  EXP.hp.lcoh_total,  res.gas.t_base,   EXP.gas.lcoh_total],
+    ['LCOH CAPEX (€/kWh)',  res.ep.c,       EXP.ep.lcoh_capex,  res.hp.c,       EXP.hp.lcoh_capex,  res.gas.c,        EXP.gas.lcoh_capex],
+    ['LCOH OPEX (€/kWh)',   res.ep.o,       EXP.ep.lcoh_opex,   res.hp.o,       EXP.hp.lcoh_opex,   res.gas.o,        EXP.gas.lcoh_opex],
+    ['LCOH Energy (€/kWh)', res.ep.e,       EXP.ep.lcoh_energy, res.hp.e,       EXP.hp.lcoh_energy, res.gas.e,        EXP.gas.lcoh_energy],
+    ['Subsidy (€)',         res.ep_sub_raw !== undefined ? res.ep_sub_raw : res.ep.sub, EXP.ep.subsidy, res.hp.sub, EXP.hp.subsidy, res.gas.sub, EXP.gas.subsidy],
+  ];
+  let allOk = true;
+  let html = `<thead><tr><th style="text-align:left">${T('verify_metric')}</th>
+    <th style="color:var(--ep)">${T('bar_ep')}</th><th>${T('verify_expected')}</th>
+    <th style="color:var(--hp)">${T('bar_hp')}</th><th>${T('verify_expected')}</th>
+    <th style="color:var(--gas)">${T('bar_gas')}</th><th>${T('verify_expected')}</th>
+  </tr></thead><tbody>`;
+  rows.forEach(([lbl, epV, epX, hpV, hpX, gasV, gasX]) => {
+    const isEur = lbl.includes('€)');
+    const fmt = isEur ? v => fmtC(v) : v => v.toFixed(4);
+    const tol2 = isEur ? 1 : tol;
+    const chk = (v, x) => {
+      const ok = Math.abs(v-x) <= tol2; if (!ok) allOk = false;
+      return ok ? `<td class="ok-val">${fmt(v)}</td><td class="exp-val">${fmt(x)}</td>` : `<td class="fail-val">${fmt(v)}</td><td class="exp-val">${fmt(x)}</td>`;
+    };
+    html += `<tr><td>${lbl}</td>${chk(epV,epX)}${chk(hpV,hpX)}${chk(gasV,gasX)}</tr>`;
+  });
+  html += '</tbody>';
+  document.getElementById('verify-table').innerHTML = html;
+  const badge = document.getElementById('hdr-badge');
+  badge.textContent = allOk ? T('badge_ok') : T('badge_fail');
+  badge.className   = allOk ? 'badge-ok' : 'badge-fail';
+}
+
+// ── View toggle ────────────────────────────────────────────────────────────
+document.querySelectorAll('.vt-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.vt-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    VIEW = this.dataset.mode;
+    updateAll();
+  });
+});
+
+// ── Presets & reset ────────────────────────────────────────────────────────
+function applyPreset(idx) {
+  activePreset = idx;
+  const p = PRESETS[idx];
+  Object.entries(p.params).forEach(([k,v]) => {
+    S[k] = v;
+    const rng = document.getElementById('rng-' + k); if (rng) rng.value = v;
+    const val = document.getElementById('val-' + k); if (val && PARAM_MAP[k]) val.textContent = displayVal(PARAM_MAP[k]);
+  });
+  renderPresets(); updateAll();
+}
+
+function resetAll() {
+  Object.assign(S, DEFAULTS);
+  BC.cls = 5; BC.area = 150; BC.persons = 4;
+  FIN_MODE = 'buy'; HAS_EV = false; VPP_ENABLED = false;
+  activeScenario = 1; activePreset = -1;
+  renderSidebar(); renderScenarioBar(); renderPresets(); updateAll();
+}
+
+// ── Main update ────────────────────────────────────────────────────────────
+function updateAll() {
+  const res = calculate(S);
+  renderChart(res);
+  renderHeroCards(res);
+  renderSavings(res);
+  renderCumChart(res);
+  renderCO2(res);
+  updateDerived(res);
+  renderVerify(res);
+  updateVppNote();
+  updateValueStackDisplay(res);
+  renderInsights(res);
+}
+
+// ── Sidebar toggle ─────────────────────────────────────────────────────────
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const btn = document.getElementById('sidebar-toggle');
+  const collapsed = sb.classList.toggle('collapsed');
+  btn.textContent = collapsed ? '▶' : '◀';
+  btn.style.left = collapsed ? '0' : '315px';
+  localStorage.setItem('haas_sidebar', collapsed ? 'collapsed' : 'expanded');
+}
+
+// ── A: Animated number tween ───────────────────────────────────────────────
+const _tweens = new Map();
+function animateValue(el, newVal, fmt, dur=350) {
+  if (!el) return;
+  const id = el.id || el;
+  const prev = _tweens.get(id);
+  const startVal = prev !== undefined ? prev : parseFloat(el.dataset.val || 0);
+  _tweens.set(id, startVal);
+  el.dataset.val = newVal;
+  const startTime = performance.now();
+  function tick(now) {
+    const p = Math.min((now - startTime) / dur, 1);
+    const ease = 1 - Math.pow(1 - p, 3); // ease-out cubic
+    const cur = startVal + (newVal - startVal) * ease;
+    el.textContent = fmt(cur);
+    _tweens.set(id, cur);
+    if (p < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+// ── B: Smart insight callouts ──────────────────────────────────────────────
+function renderInsights(res) {
+  const bar = document.getElementById('insight-bar');
+  if (!bar) return;
+  const chips = [];
+  const lt = S.lifetime;
+  const annGas = res.gas.t * S.total_heat;
+  const annEP  = res.ep.t * S.total_heat;
+  const annHP  = res.hp.t * S.total_heat;
+
+  // 0. Low heat-demand CAPEX warning
+  if (S.total_heat < 8000) {
+    const capexPerKwhEP = ((res.ep.capex + res.ep.pv - res.ep.sub) / (S.total_heat * S.lifetime)).toFixed(3);
+    const capexPerKwhGas = (res.gas.capex / (S.total_heat * S.lifetime)).toFixed(3);
+    chips.push({
+      icon: '⚠️', cls: 'warning',
+      text: LANG === 'zh'
+        ? `被動式建築警示：熱需求僅 <span class="ins-hl">${S.total_heat.toLocaleString('de-DE')} kWh/a</span>，固定安裝成本分攤至每度熱能代價高昂，燃氣鍋爐資本支出優勢顯著`
+        : `Low-demand building: at <span class="ins-hl">${S.total_heat.toLocaleString('de-DE')} kWh/a</span> heat, fixed install costs dominate — EP CAPEX/kWh is <span class="ins-hl">${capexPerKwhEP} €/kWh</span> vs gas <span class="ins-hl">${capexPerKwhGas} €/kWh</span>`
+    });
+  }
+
+  // 1. Energy cost comparison
+  const gasEnergyPct = (res.gas.e / res.gas.t * 100).toFixed(0);
+  if (gasEnergyPct > 55) {
+    chips.push({ icon:'⛽', text: LANG==='zh' ? `燃氣鍋爐總成本中有 <span class="ins-hl">${gasEnergyPct}%</span> 只是燃料費` : `With gas, <span class="ins-hl">${gasEnergyPct}%</span> of total cost is just fuel` });
+  }
+
+  // 2. Crossover year EP vs Standard HP (always shown)
+  {
+    const epAnnSav = annHP - annEP;
+    const epCapexDiff = (res.ep.capex + res.ep.pv - res.ep.sub) - (res.hp.capex + res.hp.pv - res.hp.sub);
+    if (epAnnSav > 0 && epCapexDiff <= 0) {
+      // EP cheaper upfront AND cheaper annually → already wins from day 1
+      chips.push({ icon:'📈', text: LANG==='zh' ? `ElephantONE 安裝成本更低且每年也更省：<span class="ins-hl">一開始就更划算</span>` : `ElephantONE has lower install cost <em>and</em> lower annual cost: <span class="ins-hl">cheaper from day one</span>` });
+    } else if (epAnnSav > 0 && epCapexDiff > 0) {
+      const beYr = (epCapexDiff / epAnnSav).toFixed(1);
+      if (parseFloat(beYr) <= lt) {
+        chips.push({ icon:'📈', text: LANG==='zh' ? `相比標準熱泵，ElephantONE 在 <span class="ins-hl">${beYr} 年</span>後總成本更低` : `ElephantONE amortises vs Standard HP in <span class="ins-hl">${beYr} years</span> — cheaper from then on` });
+      } else {
+        chips.push({ icon:'📈', cls:'negative', text: LANG==='zh' ? `在 ${lt} 年壽命內，ElephantONE 未能回收比標準熱泵多的投入（差距：<span class="ins-hl">${fmtC(epCapexDiff - epAnnSav * lt)}</span>）` : `Within ${lt} yrs, ElephantONE doesn't fully amortise vs Standard HP — gap: <span class="ins-hl">${fmtC(epCapexDiff - epAnnSav * lt)}</span>` });
+      }
+    } else {
+      // EP has higher annual cost than HP (rare) — still show comparison
+      const totalEP = epCapexDiff + epAnnSav * lt; // negative annSav means EP costs more
+      chips.push({ icon:'📈', cls:'negative', text: LANG==='zh' ? `在這些設定下，標準熱泵比 ElephantONE 在 ${lt} 年內總費用少 <span class="ins-hl">${fmtC(Math.abs(totalEP))}</span>` : `With these settings, Standard HP costs <span class="ins-hl">${fmtC(Math.abs((res.hp.capex+res.hp.pv-res.hp.sub) - (res.ep.capex+res.ep.pv-res.ep.sub) + (annEP-annHP)*lt))}</span> less than ElephantONE over ${lt} yrs` });
+    }
+  }
+
+  // 3. Lifetime savings
+  const lifeSavEP = (annGas - annEP) * lt;
+  if (lifeSavEP > 0) {
+    chips.push({ icon:'💰', text: LANG==='zh' ? `${lt} 年節省 <span class="ins-hl">${fmtC(lifeSavEP)}</span>（EP vs Gas）` : `Save <span class="ins-hl">${fmtC(lifeSavEP)}</span> over ${lt} years with ElephantONE` });
+  }
+
+  // 4. CO₂ reduction
+  const co2Red = ((res.gas.co2 - res.ep.co2) / res.gas.co2 * 100).toFixed(0);
+  if (co2Red > 0) {
+    chips.push({ icon:'🌍', text: LANG==='zh' ? `CO₂ 減少 <span class="ins-hl">${co2Red}%</span>（EP vs Gas）` : `<span class="ins-hl">${co2Red}% less CO₂</span> with ElephantONE vs Gas` });
+  }
+
+  // 5. Monthly equivalence
+  const moSav = (annGas - annEP) / 12;
+  if (moSav > 50) {
+    const months = Math.floor(lifeSavEP / (annGas / 12));
+    if (months >= 2) {
+      chips.push({ icon:'🎯', text: LANG==='zh' ? `節省相當於 <span class="ins-hl">${months} 個月</span>免費暖氣` : `Savings equal <span class="ins-hl">${months} months</span> of free heating` });
+    }
+  }
+
+  // 6. Fun EV distance equivalence
+  if (lifeSavEP > 0) {
+    const avgEvCostPerKm = 0.07;
+    const evKm = Math.round(lifeSavEP / avgEvCostPerKm / 100) * 100;
+    if (evKm >= 1000) {
+      chips.push({
+        icon:'🚗',
+        text: LANG==='zh'
+          ? `這筆節省大約夠一台普通電動車開 <span class="ins-hl">${evKm.toLocaleString('de-DE')} km</span>`
+          : `That saving would drive an average EV about <span class="ins-hl">${evKm.toLocaleString('de-DE')} km</span>`
+      });
+    }
+  }
+
+  bar.innerHTML = chips.map((c, i) =>
+    `<div class="insight-chip${c.cls ? ' '+c.cls : ''}" style="animation-delay:${i*0.08}s"><span class="ins-icon">${c.icon}</span><span class="ins-text">${c.text}</span></div>`
+  ).join('');
+}
+
+// ── C: Scroll-reveal (IntersectionObserver) ────────────────────────────────
+const _revealObs = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+
+function initReveal() {
+  document.querySelectorAll('.reveal').forEach(el => _revealObs.observe(el));
+}
+
+// ── D: Export / Print ──────────────────────────────────────────────────────
+function exportPDF() {
+  // Unfold all flipped cards back to front for clean print
+  document.querySelectorAll('.tech-card.flipped').forEach(c => c.classList.remove('flipped'));
+  // Make all reveals visible
+  document.querySelectorAll('.reveal').forEach(el => el.classList.add('visible'));
+  setTimeout(() => window.print(), 200);
+}
+
+// ── E: Sparklines on hero cards ────────────────────────────────────────────
+function drawSparkline(canvas, data, color) {
+  const ctx = canvas.getContext('2d');
+  const w = parseInt(canvas.getAttribute('width')) || 200;
+  const h = parseInt(canvas.getAttribute('height')) || 28;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, w, h);
+
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const absMax = Math.max(Math.abs(max), Math.abs(min)) || 1;
+  const step = w / (data.length - 1);
+  const toY = v => h / 2 - (v / absMax) * (h / 2 - 3);
+
+  // Zero line
+  const zeroY = toY(0);
+  ctx.beginPath();
+  ctx.moveTo(0, zeroY);
+  ctx.lineTo(w, zeroY);
+  ctx.strokeStyle = THEME === 'light' ? '#CBD5E1' : '#334155';
+  ctx.lineWidth = 0.8;
+  ctx.setLineDash([3, 3]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Positive fill (savings — green)
+  const posGrad = ctx.createLinearGradient(0, 0, 0, h);
+  posGrad.addColorStop(0, '#30C96F25');
+  posGrad.addColorStop(1, '#30C96F05');
+  ctx.beginPath();
+  ctx.moveTo(0, zeroY);
+  data.forEach((v, i) => {
+    const x = i * step;
+    const y = Math.min(toY(v), zeroY);
+    ctx.lineTo(x, y);
+  });
+  ctx.lineTo((data.length - 1) * step, zeroY);
+  ctx.closePath();
+  ctx.fillStyle = posGrad;
+  ctx.fill();
+
+  // Negative fill (deficit — red)
+  const negGrad = ctx.createLinearGradient(0, 0, 0, h);
+  negGrad.addColorStop(0, '#EF444405');
+  negGrad.addColorStop(1, '#EF444425');
+  ctx.beginPath();
+  ctx.moveTo(0, zeroY);
+  data.forEach((v, i) => {
+    const x = i * step;
+    const y = Math.max(toY(v), zeroY);
+    ctx.lineTo(x, y);
+  });
+  ctx.lineTo((data.length - 1) * step, zeroY);
+  ctx.closePath();
+  ctx.fillStyle = negGrad;
+  ctx.fill();
+
+  // Main line
+  ctx.beginPath();
+  data.forEach((v, i) => {
+    const x = i * step;
+    const y = toY(v);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Break-even dot (where line crosses zero)
+  for (let i = 1; i < data.length; i++) {
+    if ((data[i - 1] < 0 && data[i] >= 0) || (data[i - 1] > 0 && data[i] <= 0)) {
+      const frac = Math.abs(data[i - 1]) / (Math.abs(data[i - 1]) + Math.abs(data[i]));
+      const bx = (i - 1 + frac) * step;
+      ctx.beginPath();
+      ctx.arc(bx, zeroY, 3, 0, Math.PI * 2);
+      ctx.fillStyle = '#30C96F';
+      ctx.fill();
+      ctx.strokeStyle = THEME === 'light' ? '#FFFFFF' : '#111927';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      break;
+    }
+  }
+}
+
+function renderSparklines(res) {
+  const lt = S.lifetime;
+  const gasAnn = res.gas.t * S.total_heat;
+  const gasCapex = res.gas.capex || 0;
+  const techs = [
+    { cls:'ep',  r:res.ep,  color:'#30C96F' },
+    { cls:'hp',  r:res.hp,  color:'#F5A623' },
+    { cls:'gas', r:res.gas, color:'#EF6B4A' },
+  ];
+  techs.forEach(tech => {
+    const container = document.getElementById('spark-' + tech.cls);
+    if (!container) return;
+    const canvas = container.querySelector('canvas');
+    const label = container.querySelector('.tc-sparkline-label');
+    if (!canvas) return;
+    // Savings vs gas: cumulative gas cost - cumulative tech cost
+    // Positive = cheaper than gas, negative = more expensive
+    const techAnn = tech.r.t * S.total_heat;
+    const techCapex = tech.r.capex || 0;
+    const savingsData = [];
+    for (let y = 0; y <= lt; y++) {
+      const gasCum = gasCapex + gasAnn * y;
+      const techCum = techCapex + techAnn * y;
+      savingsData.push(gasCum - techCum);
+    }
+    drawSparkline(canvas, savingsData, tech.color);
+    // Update label with savings info
+    const totalSav = savingsData[lt];
+    if (tech.cls === 'gas') {
+      if (label) label.textContent = LANG === 'zh' ? '基準線' : 'Baseline';
+    } else {
+      if (label) label.textContent = totalSav >= 0
+        ? (LANG === 'zh' ? `${lt}年省 ${fmtC(totalSav)}` : `saves ${fmtC(totalSav)} in ${lt}yr`)
+        : (LANG === 'zh' ? `${lt}年多 ${fmtC(Math.abs(totalSav))}` : `${fmtC(Math.abs(totalSav))} more in ${lt}yr`);
+    }
+  });
+}
+
+// ── F: Light / Dark theme toggle ───────────────────────────────────────────
+let THEME = localStorage.getItem('haas_theme') || 'dark';
+
+function applyTheme(t) {
+  THEME = t;
+  document.documentElement.classList.toggle('light-theme', t === 'light');
+  document.getElementById('theme-icon').textContent = t === 'light' ? '🌙' : '☀️';
+  localStorage.setItem('haas_theme', t);
+  // Update Chart.js colors
+  if (t === 'light') {
+    Chart.defaults.color = '#64748B';
+    Chart.defaults.plugins.tooltip.backgroundColor = '#FFFFFF';
+    Chart.defaults.plugins.tooltip.titleColor = '#1E293B';
+    Chart.defaults.plugins.tooltip.bodyColor = '#475569';
+    Chart.defaults.plugins.tooltip.footerColor = '#30C96F';
+    Chart.defaults.plugins.tooltip.borderColor = '#E2E8F0';
+    Chart.defaults.plugins.tooltip.borderWidth = 1;
+  } else {
+    Chart.defaults.color = '#8494A7';
+    Chart.defaults.plugins.tooltip.backgroundColor = '#1E293B';
+    Chart.defaults.plugins.tooltip.titleColor = '#E2E8F0';
+    Chart.defaults.plugins.tooltip.bodyColor = '#CBD5E1';
+    Chart.defaults.plugins.tooltip.footerColor = '#30C96F';
+    Chart.defaults.plugins.tooltip.borderColor = '#334155';
+    Chart.defaults.plugins.tooltip.borderWidth = 1;
+  }
+}
+
+function toggleTheme() {
+  applyTheme(THEME === 'dark' ? 'light' : 'dark');
+  // Re-render charts with new colors
+  if (chart) { chart.destroy(); chart = null; }
+  if (cumChart) { cumChart.destroy(); cumChart = null; }
+  updateAll();
+}
+
+// ── Chart.js dark theme defaults ───────────────────────────────────────────
+// (Set via applyTheme in boot)
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+(function() {
+  // Restore theme
+  applyTheme(localStorage.getItem('haas_theme') || 'dark');
+
+  // Restore sidebar state (collapsed by default)
+  const sbState = localStorage.getItem('haas_sidebar') || 'collapsed';
+  const sb = document.getElementById('sidebar');
+  const btn = document.getElementById('sidebar-toggle');
+  if (sbState === 'expanded') {
+    sb.classList.remove('collapsed');
+    btn.textContent = '◀';
+    btn.style.left = '315px';
+  } else {
+    sb.classList.add('collapsed');
+    btn.textContent = '▶';
+    btn.style.left = '0';
+  }
+  // Restore mode
+  LIGHT_MODE = localStorage.getItem('haas_mode') !== 'full';
+  document.getElementById('btn-light').classList.toggle('active-mode', LIGHT_MODE);
+  document.getElementById('btn-full').classList.toggle('active-mode', !LIGHT_MODE);
+  // Restore lang
+  LANG = localStorage.getItem('haas_lang') || 'en';
+  document.documentElement.lang = LANG === 'zh' ? 'zh-Hant' : 'en';
+  document.getElementById('btn-en').classList.toggle('active-lang', LANG === 'en');
+  document.getElementById('btn-zh').classList.toggle('active-lang', LANG === 'zh');
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    const val = T(key);
+    if (typeof val === 'string') el.textContent = val;
+  });
+})();
+
+renderScenarioBar();
+renderPresets();
+renderSidebar();
+updateAll();
+initReveal();
+</script>
+</body>
+</html>
