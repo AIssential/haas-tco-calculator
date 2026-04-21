@@ -2,7 +2,9 @@
 
 ---
 
-## v0.8 — 2026-04-20
+## v0.8 FINAL — 2026-04-21
+
+- Release status: Marked as final release version for production landing flow
 
 ### UX / Insights
 - **Insight chip typography**: Increased body font size (0.70 → 0.82 rem), highlight font size (0.80 → 0.90 rem), icon size (0.90 → 1.05 rem), added `letter-spacing: 0.01em` for readability
