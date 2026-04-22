@@ -2,6 +2,28 @@
 
 ---
 
+## v0.9 — 2026-04-21
+
+- Release status: Pre-test build focused on first-run usability and visible-first parameter tuning
+
+### UX / Journey
+- **New visible quick-controls row** in the header area for `Light/Full` mode, ElephantONE electricity price, Standard HP electricity price, gas price, and lifetime
+- **Main-first tuning flow**: users can now adjust the most decision-relevant commercial levers before touching the side panel
+- **Sidebar mode header** added at the top of the side panel so Light / Full context remains visible while tuning deeper parameters
+- **Light mode expanded** to include key energy-price controls (`electricity_price_ep`, `electricity_price_hp`, `gas_price_avg`) so guided mode is commercially useful without opening hidden-detail rows
+- **Light mode helper hint** now explains that advanced parameters remain tucked away and offers a one-click switch to Full mode
+
+### State / Interaction
+- **First-visit sidebar behavior** changed from collapsed-by-default to open-by-default when no stored preference exists; subsequent visits still respect the saved user preference
+- **Quick-control synchronization** added so header sliders, sidebar sliders, scenarios, presets, and inline edits stay visually aligned
+- **Section open state persistence** added via local storage, preventing collapsible sections from resetting every time the sidebar re-renders
+
+### Responsive Improvements
+- **Tablet/mobile breakpoints** added for the quick-controls row, charts, hero cards, savings cards, and CO₂ grid
+- **Sidebar becomes overlay-style** on narrower screens with a larger touch target for the toggle button
+
+---
+
 ## v0.8 FINAL — 2026-04-21
 
 - Release status: Marked as final release version for production landing flow
