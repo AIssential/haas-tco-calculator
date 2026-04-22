@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TCO Calculator V0.9 — ElephantONE vs Standard HP vs Gas Boiler</title>
+  <title>EP Heat Cost Calculator</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     :root {
@@ -25,9 +25,6 @@
     header p{font-size:.68rem;color:var(--muted);margin-top:2px}
     #hdr-badge{font-size:.68rem;padding:3px 10px;border-radius:99px;font-weight:700;white-space:nowrap;flex-shrink:0}
     .badge-ok{background:var(--accent-dim);color:var(--accent)} .badge-fail{background:rgba(239,68,68,0.15);color:#f87171}
-    #ver-sel{font-size:.68rem;font-weight:700;padding:3px 8px;border-radius:4px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;flex-shrink:0;min-width:140px}
-    #ver-sel option{background:var(--surface);color:var(--text)}
-    #ver-sel:hover{background:var(--border);color:var(--text)}
 
     /* Header controls */
     .hdr-ctrl{display:flex;flex-direction:column;align-items:center;gap:3px;flex-shrink:0}
@@ -40,13 +37,13 @@
     .tpill-btn.active-lang{background:var(--accent);color:#0B1120}
 
     /* Layout */
-    .main{display:flex;flex:1;overflow:hidden}
+    .main{position:relative;display:flex;flex:1;overflow:hidden}
 
     /* Sidebar */
     .sidebar{width:315px;min-width:260px;overflow-y:auto;background:var(--surface);border-right:1px solid var(--border);flex-shrink:0;transition:width .25s ease,min-width .25s ease,padding .25s ease}
     .sidebar.collapsed{width:0;min-width:0;padding:0;overflow:hidden;border-right:none}
-    .sidebar-toggle{position:absolute;left:0;top:50%;transform:translateY(-50%);z-index:20;width:20px;height:40px;background:var(--surface2);border:1px solid var(--border);border-left:none;border-radius:0 6px 6px 0;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;transition:left .25s ease}
-    .sidebar-toggle:hover{background:var(--accent);color:#0B1120}
+    .sidebar-toggle{position:absolute;left:0;top:50%;transform:translateY(-50%);z-index:20;width:28px;height:72px;background:var(--surface2);border:1px solid var(--border);border-left:none;border-radius:0 8px 8px 0;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:18px;transition:left .25s ease;box-shadow:2px 0 6px rgba(0,0,0,.3)}
+    .sidebar-toggle:hover{background:var(--accent);color:#0B1120;box-shadow:2px 0 10px rgba(48,201,111,.35)}
     .preset-bar{display:flex;gap:4px;flex-wrap:wrap;padding:6px 20px;border-top:1px solid var(--border);background:var(--surface);align-items:center}
     .preset-note{font-size:.65rem;color:var(--muted);padding-left:8px;white-space:nowrap;flex-shrink:0;font-style:italic}
     .preset-btn{flex:1;min-width:0;padding:4px 6px;font-size:.65rem;font-weight:700;border:1px solid var(--border);border-radius:4px;background:var(--surface2);color:var(--muted);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -62,7 +59,7 @@
     .sidebar .preset-bar{padding:6px 10px;border-top:none;border-bottom:1px solid var(--border)}
 
     .section{border:1px solid var(--border);border-radius:6px;margin-bottom:6px;overflow:hidden}
-    .sec-hdr{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;cursor:pointer;background:var(--surface2);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;user-select:none;color:var(--text)}
+    .sec-hdr{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;cursor:pointer;background:var(--surface2);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em;-webkit-user-select:none;user-select:none;color:var(--text)}
     .sec-hdr:hover{background:var(--border)}
     .sec-hdr .chev{transition:transform .15s;font-size:.6rem}
     .sec-hdr.closed .chev{transform:rotate(-90deg)}
@@ -75,7 +72,7 @@
     .param-top .val{font-size:.73rem;font-weight:700;color:var(--text);cursor:pointer;border-radius:2px;padding:0 2px}
     .param-top .val:hover{background:var(--accent-dim);color:var(--accent)}
 
-    input[type=range]{-webkit-appearance:none;width:100%;height:4px;border-radius:2px;background:var(--border);outline:none;cursor:pointer}
+    input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:2px;background:var(--border);outline:none;cursor:pointer}
     input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.5)}
     input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--surface)}
 
@@ -104,7 +101,7 @@
     .tech-card{position:relative;border-radius:12px;cursor:pointer;height:auto}
     .tc-flip-inner{position:relative;width:100%;transition:transform .5s ease;transform-style:preserve-3d}
     .tech-card.flipped .tc-flip-inner{transform:rotateY(180deg)}
-    .tc-front,.tc-back{border-radius:12px;backface-visibility:hidden;-webkit-backface-visibility:hidden;background:var(--surface);border:1px solid var(--border);overflow:hidden;transition:border-color .2s,box-shadow .2s}
+    .tc-front,.tc-back{border-radius:12px;-webkit-backface-visibility:hidden;backface-visibility:hidden;background:var(--surface);border:1px solid var(--border);overflow:hidden;transition:border-color .2s,box-shadow .2s}
     .tc-front{position:relative;z-index:1}
     .tc-back{position:absolute;top:0;left:0;width:100%;height:100%;transform:rotateY(180deg);overflow-y:auto}
     .tech-card:hover .tc-front,.tech-card:hover .tc-back{border-color:var(--muted);box-shadow:0 4px 20px rgba(0,0,0,.3)}
@@ -128,7 +125,26 @@
     .tc-header-text{display:flex;flex-direction:column;gap:2px}
     .tc-header h3{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
     .tc-header .tc-subtitle{font-size:.65rem;color:var(--muted);line-height:1.3}
-    .tc-image-placeholder{width:100%;height:180px;background:linear-gradient(135deg, var(--surface2) 0%, var(--surface) 100%);border:1.5px dashed var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:2rem;color:var(--muted);text-align:center;margin-bottom:12px}
+    .tc-media{position:relative;width:100%;aspect-ratio:3/2;margin-bottom:12px;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,.07);background:#101a2c;box-shadow:inset 0 1px 0 rgba(255,255,255,.04), 0 10px 24px rgba(0,0,0,.25)}
+    .tc-media::after{content:'';position:absolute;inset:auto 0 0 0;height:36%;background:linear-gradient(180deg, rgba(11,17,32,0) 0%, rgba(11,17,32,.18) 30%, rgba(11,17,32,.72) 100%)}
+    .tc-media-art{position:absolute;inset:10px 10px 20px;display:flex;align-items:center;justify-content:center}
+    .tc-media.ep .tc-media-art{inset:6px 4px 18px;align-items:flex-end}
+    .tc-media svg{max-width:100%;max-height:100%;display:block}
+    .tc-media-photo{display:block;width:100%;height:100%;object-fit:contain;object-position:center center}
+    .tc-media-placeholder .tc-media-art{padding:4px}
+    .tc-media-placeholder-shape{position:relative;width:100%;height:100%;border-radius:8px;border:1px dashed rgba(255,255,255,.12);background:
+      linear-gradient(180deg, rgba(255,255,255,.03) 0%, rgba(255,255,255,.01) 100%),
+      repeating-linear-gradient(90deg, rgba(255,255,255,.03) 0 1px, transparent 1px 22px)}
+    .tc-media-placeholder-shape::before{content:'';position:absolute;inset:auto 12% 0 12%;height:14px;border-radius:999px;background:radial-gradient(circle, rgba(0,0,0,.3) 0%, rgba(0,0,0,0) 70%)}
+    .tc-media-placeholder-shape.hp::after{content:'';position:absolute;left:50%;top:50%;width:64%;height:62%;transform:translate(-50%,-56%);border-radius:16px;background:linear-gradient(180deg, #DCE6F0 0%, #B8C6D6 100%);box-shadow:inset 0 0 0 2px rgba(255,255,255,.35), inset 0 -12px 22px rgba(20,35,55,.14), 0 18px 24px rgba(0,0,0,.18)}
+    .tc-media-placeholder-shape.hp i,.tc-media-placeholder-shape.gas i{position:absolute;display:block}
+    .tc-media-placeholder-shape.hp i:nth-child(1){left:50%;top:44%;width:42%;height:42%;transform:translate(-50%,-50%);border-radius:50%;border:5px solid #7C93AE;box-shadow:0 0 0 4px rgba(124,147,174,.14)}
+    .tc-media-placeholder-shape.hp i:nth-child(2){left:50%;top:44%;width:22%;height:22%;transform:translate(-50%,-50%);border-radius:50%;background:#7C93AE}
+    .tc-media-placeholder-shape.hp i:nth-child(3){left:50%;bottom:18%;width:34%;height:6px;transform:translateX(-50%);border-radius:999px;background:rgba(124,147,174,.45)}
+    .tc-media-placeholder-shape.gas::after{content:'';position:absolute;left:50%;top:53%;width:58%;height:56%;transform:translate(-50%,-54%);border-radius:12px;background:linear-gradient(180deg, #AEB8C6 0%, #7F8A99 100%);box-shadow:inset 0 0 0 2px rgba(255,255,255,.2), inset 0 -14px 20px rgba(0,0,0,.12), 0 18px 24px rgba(0,0,0,.18)}
+    .tc-media-placeholder-shape.gas i:nth-child(1){left:50%;top:38%;width:16%;height:16%;transform:translate(-50%,-50%);border-radius:50%;background:#E8EEF5;box-shadow:0 0 0 5px rgba(232,238,245,.14)}
+    .tc-media-placeholder-shape.gas i:nth-child(2){left:50%;top:60%;width:34%;height:5px;transform:translateX(-50%);border-radius:999px;background:rgba(232,238,245,.32)}
+    .tc-media-placeholder-shape.gas i:nth-child(3){left:50%;top:70%;width:22%;height:22%;transform:translateX(-50%);clip-path:polygon(50% 0%, 70% 34%, 57% 34%, 73% 66%, 50% 100%, 27% 66%, 43% 34%, 30% 34%);background:linear-gradient(180deg, #FFD36B 0%, #F97316 100%);filter:drop-shadow(0 0 8px rgba(249,115,22,.38))}
     .tech-card.ep .tc-header h3{color:var(--ep)}
     .tech-card.hp .tc-header h3{color:var(--hp)}
     .tech-card.gas .tc-header h3{color:var(--gas)}
@@ -187,6 +203,11 @@
     .derived-card .dtitle{font-size:.65rem;text-transform:uppercase;font-weight:700;letter-spacing:.05em;color:var(--muted);margin-bottom:7px}
     .kv{display:flex;justify-content:space-between;font-size:.7rem;padding:2px 0}
     .kv .k{color:var(--muted)} .kv .v{font-weight:600}
+    .kv.kv-mt{margin-top:6px}
+    .kv .v.v-ok{color:var(--ok)}
+    .payback-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px}
+    .lcoh-hint{font-size:.63rem;color:var(--muted);margin-left:6px}
+    .verify-wrap{margin-top:10px}
 
     .verify-table{width:100%;border-collapse:collapse;font-size:.7rem}
     .verify-table th{text-align:right;padding:4px 8px;background:var(--surface2);color:var(--muted);font-weight:700;border-bottom:1px solid var(--border)}
@@ -195,7 +216,7 @@
     .verify-table td:first-child{text-align:left;color:var(--muted)}
     .verify-table tr:last-child td{border-bottom:none}
     .ok-val{color:var(--accent);font-weight:700} .fail-val{color:var(--fail);font-weight:700} .exp-val{color:var(--muted);font-style:italic}
-    details summary{cursor:pointer;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:4px 0;user-select:none}
+    details summary{cursor:pointer;font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:4px 0;-webkit-user-select:none;user-select:none}
     details summary:hover{color:var(--accent)}
 
     /* Custom scrollbar for dark theme */
@@ -319,7 +340,7 @@
         box-shadow:0 18px 40px rgba(0,0,0,.45)
       }
       .sidebar.collapsed{width:0;min-width:0;box-shadow:none}
-      .sidebar-toggle{top:18px;transform:none;width:34px;height:34px;border-radius:0 8px 8px 0;font-size:14px}
+      .sidebar-toggle{top:18px;transform:none;width:34px;height:48px;border-radius:0 8px 8px 0;font-size:16px}
     }
 
     /* Phone portrait */
@@ -327,7 +348,7 @@
       .hdr-top,.scenario-bar{padding-left:12px;padding-right:12px}
       .results{padding:10px}
       .card-hdr{flex-direction:column;align-items:flex-start;gap:8px}
-      .tc-image-placeholder{height:140px}
+      /* tc-media uses aspect-ratio:3/2 — no fixed height override needed */
       .tech-row{grid-template-columns:1fr}
       .charts-grid{grid-template-columns:1fr}
       .scenario-bar{gap:4px}
@@ -349,7 +370,7 @@
 <header>
   <div class="hdr-top">
     <div>
-      <h1 data-i18n="title">ElephantONE vs Standard HP vs Gas Boiler — TCO / LCOH Calculator</h1>
+      <h1 data-i18n="title">EP Heat Cost Calculator</h1>
       <p data-i18n="subtitle">Levelised Cost of Heat · Source: 260224_TCO_Tool_Technology_Comparison.xlsx</p>
     </div>
     <div class="hdr-ctrl">
@@ -365,24 +386,13 @@
     <button class="export-btn" onclick="exportPDF()">
       <span class="exp-icon">📄</span> Export
     </button>
-    <select id="ver-sel" onchange="if(this.value)window.location.href=this.value">
-      <option value="haas_tco_v09.html" selected>V0.9 — Sidebar-First UX (Latest)</option>
-      <option value="haas_tco_v08.html">V0.8 FINAL — Dark Theme Redesign</option>
-      <option value="haas_tco_calculator.html">V0.7 — Bilingual EN/繁中</option>
-      <option value="haas_tco_v06.html">V0.6 — Light/Full Mode</option>
-      <option value="haas_tco_v05.html">V0.5 — Value Stacking Logic</option>
-      <option value="haas_tco_v04.html">V0.4 — Beautification</option>
-      <option value="haas_tco_v03.html">V0.3 — Value Stacking</option>
-      <option value="haas_tco_v02.html">V0.2 — UI Improvements</option>
-      <option value="haas_tco_v01.html">V0.1 — Initial Release</option>
-    </select>
     <div id="hdr-badge">…</div>
   </div>
   <div class="scenario-bar" id="scenario-bar"></div>
 </header>
 
-<div class="main" style="position:relative">
-  <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()">▶</button>
+<div class="main">
+  <button class="sidebar-toggle" id="sidebar-toggle" title="Toggle controls sidebar" onclick="toggleSidebar()">▶</button>
   <div class="sidebar collapsed" id="sidebar">
     <div class="sidebar-modebar">
       <span class="sidebar-modebar-lbl" data-i18n="mode_hint">Mode</span>
@@ -413,7 +423,7 @@
         <div class="card-hdr">
           <div>
             <span class="card-title" data-i18n="cum_title">Break-even &amp; Payback vs. Gas Boiler</span>
-            <div id="payback-chips" class="payback-chips" style="margin-top:5px"></div>
+            <div id="payback-chips" class="payback-chips"></div>
           </div>
           <div class="cum-vt-grp">
             <button class="cum-vt-btn active" data-cmode="savings" data-i18n="cum_savings">Savings vs Gas</button>
@@ -427,7 +437,7 @@
         <div class="card-hdr">
           <div>
             <span class="card-title" data-i18n="lcoh_title">LCOH Breakdown</span>
-            <span style="font-size:.63rem;color:var(--muted);margin-left:6px" data-i18n="lcoh_legend_hint">click legend to toggle segments</span>
+            <span class="lcoh-hint" data-i18n="lcoh_legend_hint">click legend to toggle segments</span>
           </div>
           <div class="vt-grp">
             <button class="vt-btn active" data-mode="lcoh">€/kWh</button>
@@ -451,20 +461,20 @@
         <div class="dtitle" data-i18n="dv_pv_lcoe">PV LCOE</div>
         <div class="kv"><span class="k" data-i18n="dv_lcoe_ep">ElephantONE (inverter &amp; battery integrated)</span><span class="v" id="dv-lcoe-ep">—</span></div>
         <div class="kv"><span class="k" data-i18n="dv_lcoe_hp">Standard HP (with inverter)</span><span class="v" id="dv-lcoe-hp">—</span></div>
-        <div class="kv" style="margin-top:6px"><span class="k" data-i18n="dv_blend_ep">Blended price ElephantONE</span><span class="v" id="dv-blend-ep">—</span></div>
+        <div class="kv kv-mt"><span class="k" data-i18n="dv_blend_ep">Blended price ElephantONE</span><span class="v" id="dv-blend-ep">—</span></div>
         <div class="kv"><span class="k" data-i18n="dv_blend_hp">Blended price Standard HP</span><span class="v" id="dv-blend-hp">—</span></div>
       </div>
       <div class="derived-card">
         <div class="dtitle" data-i18n="dv_energy_demand">Annual Energy Demand</div>
         <div class="kv"><span class="k" data-i18n="dv_elec_ep">ElephantONE electricity (incl. losses)</span><span class="v" id="dv-elec-ep">—</span></div>
         <div class="kv"><span class="k" data-i18n="dv_elec_hp">Standard HP electricity</span><span class="v" id="dv-elec-hp">—</span></div>
-        <div class="kv" style="margin-top:6px"><span class="k" data-i18n="dv_gas_cons">Gas consumption</span><span class="v" id="dv-gas-cons">—</span></div>
+        <div class="kv kv-mt"><span class="k" data-i18n="dv_gas_cons">Gas consumption</span><span class="v" id="dv-gas-cons">—</span></div>
       </div>
       <div class="derived-card">
         <div class="dtitle" data-i18n="dv_subsidy_capex">Subsidies &amp; Total Investment</div>
-        <div class="kv"><span class="k" data-i18n="dv_sub_ep">Subsidy ElephantONE</span><span class="v" id="dv-sub-ep" style="color:var(--ok)">—</span></div>
-        <div class="kv"><span class="k" data-i18n="dv_sub_hp">Subsidy Standard HP</span><span class="v" id="dv-sub-hp" style="color:var(--ok)">—</span></div>
-        <div class="kv" style="margin-top:6px"><span class="k" data-i18n="dv_capex_ep">Total CAPEX ElephantONE (incl. PV)</span><span class="v" id="dv-capex-ep">—</span></div>
+        <div class="kv"><span class="k" data-i18n="dv_sub_ep">Subsidy ElephantONE</span><span class="v v-ok" id="dv-sub-ep">—</span></div>
+        <div class="kv"><span class="k" data-i18n="dv_sub_hp">Subsidy Standard HP</span><span class="v v-ok" id="dv-sub-hp">—</span></div>
+        <div class="kv kv-mt"><span class="k" data-i18n="dv_capex_ep">Total CAPEX ElephantONE (incl. PV)</span><span class="v" id="dv-capex-ep">—</span></div>
         <div class="kv"><span class="k" data-i18n="dv_capex_hp">Total CAPEX Standard HP (incl. PV)</span><span class="v" id="dv-capex-hp">—</span></div>
         <div class="kv"><span class="k" data-i18n="dv_capex_gas">Total CAPEX Gas Boiler</span><span class="v" id="dv-capex-gas">—</span></div>
       </div>
@@ -473,7 +483,7 @@
     <div class="card">
       <details>
         <summary data-i18n="verify_title">Verification against default parameters</summary>
-        <div style="margin-top:10px">
+        <div class="verify-wrap">
           <table class="verify-table" id="verify-table"></table>
         </div>
       </details>
@@ -486,7 +496,7 @@
 // ── i18n STRINGS ───────────────────────────────────────────────────────────
 const STRINGS = {
   en: {
-    title: 'ElephantONE vs Standard HP vs Gas Boiler — TCO / LCOH Calculator',
+    title: 'EP Heat Cost Calculator',
     subtitle: 'Levelised Cost of Heat · Source: 260224_TCO_Tool_Technology_Comparison.xlsx',
     // Mode
     mode_hint: 'Mode',
@@ -1542,6 +1552,33 @@ function renderChart(res) {
 let cumChart = null;
 let CUM_MODE = 'savings';
 
+
+function renderTechMedia(tech) {
+  if (tech.cls === 'ep') {
+    return `
+      <div class="tc-media ep" role="img" aria-label="ElephantONE installed next to a house with solar panels">
+        <div class="tc-media-art">
+          <img class="tc-media-photo" src="media/EP_one_herocard.png" alt="ElephantONE energy cabinet installed at a house with solar panels">
+        </div>
+      </div>`;
+  }
+
+  if (tech.cls === 'hp') {
+    return `
+      <div class="tc-media hp" role="img" aria-label="Standard heat pump outdoor unit">
+        <div class="tc-media-art">
+          <img class="tc-media-photo" src="media/HP_herocard.png" alt="Standard heat pump outdoor unit">
+        </div>
+      </div>`;
+  }
+
+  return `
+    <div class="tc-media gas" role="img" aria-label="Gas boiler installed in a house">
+      <div class="tc-media-art">
+        <img class="tc-media-photo" src="media/gas_herocard.png" alt="Gas boiler installed in a house">
+      </div>
+    </div>`;
+}
 function renderCumChart(res) {
   const lt = S.lifetime, heat = S.total_heat;
   const ep_capex_net  = (FIN_MODE === 'haas') ? 0 : (res.ep.capex + res.ep.pv - res.ep.sub);
@@ -1710,7 +1747,7 @@ function renderHeroCards(res) {
           <h3>${tech.name}</h3>
           <div class="tc-subtitle">${sub.replace(/\n/g, '<br>')}</div>
         </div>
-        <div class="tc-image-placeholder">📷</div>
+        ${renderTechMedia(tech)}
       </div>
       
       <div class="tc-hero">
@@ -2026,7 +2063,7 @@ function toggleSidebar() {
   const sb = document.getElementById('sidebar');
   const btn = document.getElementById('sidebar-toggle');
   const collapsed = sb.classList.toggle('collapsed');
-  btn.textContent = collapsed ? '▶' : '◀';
+  btn.textContent = collapsed ? '▶' : '«';
   btn.style.left = collapsed ? '0' : '315px';
   localStorage.setItem('haas_sidebar', collapsed ? 'collapsed' : 'expanded');
 }
